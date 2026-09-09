@@ -1,0 +1,230 @@
+import SwiftUI
+import Combine
+
+// MARK: - Block Type
+enum BlockType: String, CaseIterable, Codable {
+    case seekLight = "Seek Light"
+    case avoidLight = "Avoid Light"
+    case sleep = "Go to Sleep"
+    case nap = "Take a Nap"
+    case caffeine = "Caffeine"
+    case noCaffeine = "No Caffeine"
+    case melatonin = "Take Melatonin"
+    case flight = "Flight"
+
+    var icon: String {
+        switch self {
+        case .seekLight:   return "sun.max.fill"
+        case .avoidLight:  return "moon.fill"
+        case .sleep:       return "bed.double.fill"
+        case .nap:         return "zzz"
+        case .caffeine:    return "cup.and.saucer.fill"
+        case .noCaffeine:  return "cup.and.saucer"
+        case .melatonin:   return "pills.fill"
+        case .flight:      return "airplane"
+        }
+    }
+
+    var color: Color {
+        switch self {
+        case .seekLight:   return AppTheme.primary
+        case .avoidLight:  return Color(hex: "#7B68EE")
+        case .sleep:       return Color(hex: "#4A90E2")
+        case .nap:         return Color(hex: "#87CEEB")
+        case .caffeine:    return Color(hex: "#8B4513")
+        case .noCaffeine:  return Color(.systemGray3)
+        case .melatonin:   return Color(hex: "#9B59B6")
+        case .flight:      return Color(.systemGray2)
+        }
+    }
+
+    var whatToDo: String {
+        switch self {
+        case .seekLight:
+            return "Get as much bright light as possible. Go outside, open curtains, or use a light therapy lamp."
+        case .avoidLight:
+            return "Dim your environment. Wear blue-light blocking glasses, close curtains, and avoid bright screens."
+        case .sleep:
+            return "Keep your room cool, dark, and quiet. Use a sleep mask or earplugs if needed. Try a warm shower or light stretching before bed."
+        case .nap:
+            return "Take a short nap of 20–30 minutes if possible. Set an alarm so you don't oversleep and disrupt your schedule."
+        case .caffeine:
+            return "Have a coffee, tea, or another caffeinated drink now to boost alertness and help you stay awake."
+        case .noCaffeine:
+            return "Avoid caffeine completely during this window. It will interfere with your sleep schedule and slow adaptation."
+        case .melatonin:
+            return "Take 0.5–3mg of melatonin now. This helps signal to your body that it's time to prepare for sleep."
+        case .flight:
+            return "You are on your flight. Try to align your sleep and light exposure with your destination time zone."
+        }
+    }
+
+    var alternatives: String {
+        switch self {
+        case .seekLight:
+            return "If you can't go outside, sit near a window or use a 10,000 lux light therapy lamp for 20–30 minutes."
+        case .avoidLight:
+            return "Use blackout curtains or a sleep mask. Switch phone to night mode or maximum warm color temperature."
+        case .sleep:
+            return "Listen to calming music or a short meditation. Read a book (avoid screens). Try slow breathing exercises."
+        case .nap:
+            return "If you can't sleep, just close your eyes and rest quietly. Even 10 minutes of rest helps recovery."
+        case .caffeine:
+            return "Green tea or matcha is a gentler alternative if you're sensitive to coffee. Energy drinks are not recommended."
+        case .noCaffeine:
+            return "Drink water or herbal tea instead. Physical movement like a short walk can boost alertness naturally."
+        case .melatonin:
+            return "If you don't have melatonin, try keeping the room very dark and cool to naturally boost melatonin production."
+        case .flight:
+            return "Use an eye mask and earplugs if flying overnight. Ask for a blanket and adjust your watch to destination time."
+        }
+    }
+
+    var whyItMatters: String {
+        switch self {
+        case .seekLight:
+            return "Light is the most powerful signal for your circadian clock. Timed light exposure directly shifts your body clock faster than any other method."
+        case .avoidLight:
+            return "Light at the wrong time can push your body clock in the wrong direction, making jet lag worse and prolonging adaptation."
+        case .sleep:
+            return "Sleep problems are the biggest complaint with jet lag. Sleeping at the right local time resets your circadian rhythm."
+        case .nap:
+            return "Strategic napping reduces sleep pressure and improves function without significantly delaying nighttime sleep."
+        case .caffeine:
+            return "Caffeine blocks adenosine receptors, reducing drowsiness and improving alertness when you need to stay awake."
+        case .noCaffeine:
+            return "Caffeine has a half-life of 5–6 hours. Consuming it too late will prevent you from falling asleep at the right time."
+        case .melatonin:
+            return "Melatonin is a chronobiotic — it helps shift your body clock to the new time zone, not just make you sleepy."
+        case .flight:
+            return "What you do during a flight significantly impacts how quickly you adapt. Light, sleep, and meals all matter in the air."
+        }
+    }
+}
+
+// MARK: - Timeline Block
+struct TimelineBlock: Identifiable, Codable {
+    var id = UUID()
+    var type: BlockType
+    var startTime: Date
+    var endTime: Date
+    var title: String
+    var durationLabel: String {
+        let diff = Calendar.current.dateComponents([.hour, .minute], from: startTime, to: endTime)
+        let h = diff.hour ?? 0
+        let m = diff.minute ?? 0
+        if h > 0 && m > 0 { return "\(h)h \(m)m" }
+        if h > 0 { return "\(h) hours" }
+        return "\(m) min"
+    }
+}
+
+// MARK: - Flight Leg
+struct FlightLeg: Identifiable, Codable {
+    var id = UUID()
+    var origin: String
+    var destination: String
+    var departure: Date
+    var arrival: Date
+}
+
+// MARK: - User Profile
+struct UserProfile: Codable {
+    var useMelatonin: Bool = false
+    var useCaffeine: Bool = true
+    var receiveNotifications: Bool = true
+    var sleepTime: Date = Calendar.current.date(from: DateComponents(hour: 22, minute: 0)) ?? Date()
+    var wakeTime: Date = Calendar.current.date(from: DateComponents(hour: 6, minute: 0)) ?? Date()
+    var sex: String = "Other"
+    var name: String = "Name"
+    var totalSleep: String = "8h 00m"
+    var sleepPattern: String = "22:00 – 06:00"
+}
+
+// MARK: - Trip
+struct Trip: Identifiable, Codable, Hashable {
+    static func == (lhs: Trip, rhs: Trip) -> Bool {
+        lhs.id == rhs.id
+    }
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
+    }
+    var id = UUID()
+    var flights: [FlightLeg]
+    var blocks: [TimelineBlock]
+    var createdAt: Date = Date()
+
+    var originCode: String { flights.first?.origin ?? "—" }
+    var destinationCode: String { flights.last?.destination ?? "—" }
+    var destinationCity: String = ""
+    var originCity: String = ""
+    var departureDate: Date { flights.first?.departure ?? Date() }
+    var isActive: Bool {
+        guard let last = flights.last else { return false }
+        return last.arrival > Date()
+    }
+}
+
+// MARK: - App State
+class AppState: ObservableObject {
+    static let shared = AppState()
+
+    @Published var trips: [Trip] = []
+    @Published var profile: UserProfile = UserProfile()
+    @Published var hasCompletedProfile: Bool = false
+
+    private init() { loadSample() }
+
+    func addTrip(_ trip: Trip) {
+        trips.insert(trip, at: 0)
+    }
+
+    private func loadSample() {
+        // Empty by default — user adds flights
+    }
+
+    func generateBlocks(for trip: Trip) -> [TimelineBlock] {
+        guard let firstFlight = trip.flights.first else { return [] }
+        var blocks: [TimelineBlock] = []
+        let cal = Calendar.current
+        let depDay = cal.startOfDay(for: firstFlight.departure)
+
+        func makeDate(_ day: Int, _ hour: Int, _ minute: Int = 0) -> Date {
+            cal.date(byAdding: .day, value: day, to: depDay)
+                .flatMap { cal.date(bySettingHour: hour, minute: minute, second: 0, of: $0) }
+            ?? depDay
+        }
+
+        // Day before flight
+        blocks.append(TimelineBlock(type: .seekLight, startTime: makeDate(-1, 7), endTime: makeDate(-1, 9), title: "Seek Light"))
+        blocks.append(TimelineBlock(type: .caffeine, startTime: makeDate(-1, 8), endTime: makeDate(-1, 9), title: "Caffeine"))
+        blocks.append(TimelineBlock(type: .noCaffeine, startTime: makeDate(-1, 14), endTime: makeDate(-1, 18), title: "No Caffeine"))
+        blocks.append(TimelineBlock(type: .sleep, startTime: makeDate(-1, 22), endTime: makeDate(0, 6), title: "Go to Sleep"))
+
+        // Flight day
+        blocks.append(TimelineBlock(type: .seekLight, startTime: makeDate(0, 7), endTime: makeDate(0, 9), title: "Seek Light"))
+        blocks.append(TimelineBlock(type: .caffeine, startTime: makeDate(0, 8), endTime: makeDate(0, 9), title: "Caffeine"))
+
+        // Flight block
+        for leg in trip.flights {
+            blocks.append(TimelineBlock(type: .flight, startTime: leg.departure, endTime: leg.arrival, title: "Flight \(leg.origin) → \(leg.destination)"))
+        }
+
+        // Arrival day
+        blocks.append(TimelineBlock(type: .avoidLight, startTime: makeDate(1, 12), endTime: makeDate(1, 15), title: "Avoid Light"))
+        blocks.append(TimelineBlock(type: .noCaffeine, startTime: makeDate(1, 15), endTime: makeDate(1, 20), title: "No Caffeine"))
+        if profile.useMelatonin {
+            blocks.append(TimelineBlock(type: .melatonin, startTime: makeDate(1, 21), endTime: makeDate(1, 21, 30), title: "Take Melatonin"))
+        }
+        blocks.append(TimelineBlock(type: .sleep, startTime: makeDate(1, 22), endTime: makeDate(2, 6), title: "Go to Sleep"))
+
+        // Day 2
+        blocks.append(TimelineBlock(type: .seekLight, startTime: makeDate(2, 7), endTime: makeDate(2, 9), title: "Seek Light"))
+        blocks.append(TimelineBlock(type: .caffeine, startTime: makeDate(2, 8), endTime: makeDate(2, 9), title: "Caffeine"))
+        blocks.append(TimelineBlock(type: .nap, startTime: makeDate(2, 14), endTime: makeDate(2, 14, 30), title: "Take a Nap"))
+        blocks.append(TimelineBlock(type: .noCaffeine, startTime: makeDate(2, 14), endTime: makeDate(2, 20), title: "No Caffeine"))
+        blocks.append(TimelineBlock(type: .sleep, startTime: makeDate(2, 22), endTime: makeDate(3, 6), title: "Go to Sleep"))
+
+        return blocks.sorted { $0.startTime < $1.startTime }
+    }
+}
