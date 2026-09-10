@@ -48,6 +48,7 @@ ByeJetlag/
 - [x] `ScheduleView` render dari `trip.blocks` (`[TimelineBlock]`), bukan duplicate model.
 - [x] Duplicate domain model (`ActivityType`, `ActivityItem`, `TimelineSection`, `MockSchedule`) dihapus dari `ScheduleView.swift`.
 - [x] `AppState` dibuat sekali di root `ByeJetLagApp` dan di-inject melalui `.environmentObject()`.
+- [x] Root environment injection diterapkan langsung pada kedua cabang Home/Onboarding, sehingga tidak memakai modifier pada conditional builder. *(2026-09-10)*
 - [x] `BlockType` memiliki foreground, background, dan SF Symbols sesuai `05_DESIGN_SYSTEM.md` Section 2–3; timeline dan block detail mengonsumsi mapping tersebut. *(2026-09-10)*
 
 > Checklist di atas hanya berarti code/structure ditemukan, **bukan berarti behavior sudah benar**.
@@ -110,6 +111,7 @@ ByeJetlag/
 - [ ] Component source of truth belum sepenuhnya dikonsolidasikan.
 - [ ] `Color(hex:)` masih belum berada di utility target tunggal.
 - [ ] `CircadianEngineTests` belum terdaftar ke Xcode test target karena `.xcodeproj`/workspace tidak tersedia di source tree.
+- [ ] `CircadianEngineTests` ter-compile hanya bila XCTest tersedia; file perlu dimasukkan ke test target untuk dieksekusi.
 
 ---
 

@@ -1,3 +1,4 @@
+#if canImport(XCTest)
 import Foundation
 import XCTest
 @testable import ByeJetlag
@@ -23,3 +24,4 @@ final class CircadianEngineTests: XCTestCase {
         XCTAssertEqual(CircadianEngine.direction(originUTCOffset: 0, destinationUTCOffset: -15 * 3_600), .eastward)
     }
 }
+#endif

@@ -155,6 +155,39 @@ Add explicit persisted IANA timezone identifiers to `FlightLeg` and configure th
 
 ---
 
+## 2026-09-10 — Resolve App-Target Build Diagnostics
+
+### Task
+Resolve the reported root environment, XCTest module, and deprecated locale API build diagnostics.
+
+### Root Cause
+The build target treated the XCTest source as application code, and the root environment modifier remained attached to a conditional builder. The airport helper used an API deprecated on iOS 16.
+
+### Files Changed
+- `App/ByeJetLagApp.swift` — inject the root state directly into each concrete root view branch.
+- `Tests/CircadianEngineTests.swift` — compile XCTest tests only when XCTest is available to the target.
+- `Models/Airport.swift` — use `Locale.Region.isoRegions`.
+- `Views/Home/HomeView.swift` — make the stateful preview setup a single expression, avoiding a `Void` expression in `ViewBuilder`.
+- `06_CURRENT_STATE.md` — record the root-injection and test-target state.
+- `07_CHANGELOG.md` — record this patch.
+
+### Behavior Changed
+- The app root gives both Home and Onboarding the same injected `AppState` without applying a modifier to the conditional builder.
+- App builds that do not link XCTest exclude the test declaration; a proper XCTest target still compiles and runs it.
+
+### Verification
+- Build: NOT VERIFIED — no `.xcodeproj` or workspace is available.
+- Tests: Not run; no test target is available.
+- Static checks/manual checks: full source type-check no longer reports the root environment, XCTest, self-import, airport deprecation, or Home preview `ViewBuilder` diagnostics. It remains blocked only by the local toolchain's unavailable `PreviewsMacros` plugin.
+
+### Known Limitations
+- `CircadianEngineTests` must still be assigned to an XCTest target in the real Xcode project.
+
+### Next Recommended Step
+Open the real Xcode project, add `Tests/CircadianEngineTests.swift` to its unit-test target, and run the suite.
+
+---
+
 # Entry Template
 
 Copy template ini untuk patch berikutnya:

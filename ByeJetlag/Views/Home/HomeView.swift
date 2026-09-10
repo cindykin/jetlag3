@@ -250,16 +250,17 @@ struct ActionIcon: View {
 }
 
 #Preview("With trips") {
-    let state = AppState()
-    let leg = FlightLeg(
-        origin: "CGK", destination: "CDG",
-        departure: Date(), arrival: Date().addingTimeInterval(3600 * 14)
-    )
-    var trip = Trip(flights: [leg], blocks: [])
-    trip.originCity = "Jakarta"
-    trip.destinationCity = "Paris"
-    state.trips = [trip]
-
     HomeView()
-        .environmentObject(state)
+        .environmentObject({
+            let state = AppState()
+            let leg = FlightLeg(
+                origin: "CGK", destination: "CDG",
+                departure: Date(), arrival: Date().addingTimeInterval(3600 * 14)
+            )
+            var trip = Trip(flights: [leg], blocks: [])
+            trip.originCity = "Jakarta"
+            trip.destinationCity = "Paris"
+            state.trips = [trip]
+            return state
+        }())
 }

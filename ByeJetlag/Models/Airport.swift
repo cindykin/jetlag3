@@ -27,7 +27,8 @@ struct Airport: Codable, Identifiable, Hashable {
 
     static func countryToCode(_ country: String) -> String {
         let locale = Locale(identifier: "en_US")
-        for code in Locale.isoRegionCodes {
+        for region in Locale.Region.isoRegions {
+            let code = region.identifier
             if let name = locale.localizedString(forRegionCode: code),
                name.lowercased() == country.lowercased() {
                 return code
