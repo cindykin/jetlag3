@@ -53,7 +53,10 @@ struct AddFlightView: View {
     @State private var editingFlightIndex = 0
 
     private var isStep0Valid: Bool {
-        flights.allSatisfy { !$0.origin.isEmpty && !$0.destination.isEmpty }
+        flights.allSatisfy {
+            !$0.origin.isEmpty && !$0.destination.isEmpty &&
+            !$0.originTimeZoneID.isEmpty && !$0.destinationTimeZoneID.isEmpty
+        }
     }
 
     var body: some View {
@@ -143,6 +146,7 @@ struct AddFlightView: View {
     private func addNewFlight() {
         flights.append(FlightLeg(
             origin: flights.last?.destination ?? "", destination: "",
+            originTimeZoneID: flights.last?.destinationTimeZoneID ?? "",
             departure: flights.last?.arrival ?? Date(),
             arrival: (flights.last?.arrival ?? Date()).addingTimeInterval(3600 * 8)
         ))
@@ -207,7 +211,11 @@ struct AddFlightStep1: View {
                         AirportInputRow(airport: selectedOrigin, placeholder: "Choose airport departure")
                     }
                     .buttonStyle(.plain)
-                    .onChange(of: selectedOrigin) { _, new in if let a = new { flights[idx].origin = a.iata_code } }
+                    .onChange(of: selectedOrigin) { _, new in
+                        guard let airport = new else { return }
+                        flights[idx].origin = airport.iata_code
+                        flights[idx].originTimeZoneID = airport.timezone
+                    }
 
                     HStack { Spacer(); Image(systemName: "arrow.down").font(.caption).foregroundStyle(.secondary); Spacer() }
 
@@ -215,16 +223,30 @@ struct AddFlightStep1: View {
                         AirportInputRow(airport: selectedDest, placeholder: "Choose airport arrival")
                     }
                     .buttonStyle(.plain)
-                    .onChange(of: selectedDest) { _, new in if let a = new { flights[idx].destination = a.iata_code } }
+                    .onChange(of: selectedDest) { _, new in
+                        guard let airport = new else { return }
+                        flights[idx].destination = airport.iata_code
+                        flights[idx].destinationTimeZoneID = airport.timezone
+                    }
                 }
 
                 VStack(alignment: .leading, spacing: 12) {
                     Text("Schedule").font(.headline)
                     Text("Pick date and time same as your ticket").font(.caption).foregroundStyle(.secondary)
                     VStack(spacing: 0) {
-                        DatePickerRow(label: "Departure", icon: "airplane.departure", selection: $flights[idx].departure)
+                        DatePickerRow(
+                            label: "Departure",
+                            icon: "airplane.departure",
+                            selection: $flights[idx].departure,
+                            timeZoneID: flights[idx].originTimeZoneID
+                        )
                         Divider().padding(.leading, 56)
-                        DatePickerRow(label: "Arrival", icon: "airplane.arrival", selection: $flights[idx].arrival)
+                        DatePickerRow(
+                            label: "Arrival",
+                            icon: "airplane.arrival",
+                            selection: $flights[idx].arrival,
+                            timeZoneID: flights[idx].destinationTimeZoneID
+                        )
                     }
                     .padding(.vertical, 4)
                     .background(Color.gray.opacity(0.05))
@@ -282,13 +304,41 @@ struct QuickNoteCard: View {
 
 // MARK: - Date Picker Row
 struct DatePickerRow: View {
-    let label: String; let icon: String; @Binding var selection: Date
+    let label: String
+    let icon: String
+    @Binding var selection: Date
+    let timeZoneID: String
+
+    private var timeZone: TimeZone? {
+        TimeZone(identifier: timeZoneID)
+    }
+
+    private var airportLocalSelection: Binding<Date> {
+        Binding(
+            get: { selection },
+            set: { pickedDate in
+                guard let timeZone else {
+                    selection = pickedDate
+                    return
+                }
+                var calendar = Calendar(identifier: .gregorian)
+                calendar.timeZone = timeZone
+                let components = calendar.dateComponents(
+                    [.year, .month, .day, .hour, .minute],
+                    from: pickedDate
+                )
+                selection = calendar.date(from: components) ?? pickedDate
+            }
+        )
+    }
+
     var body: some View {
         HStack(spacing: 8) {
             Image(systemName: icon).foregroundStyle(AppTheme.primary).frame(width: 24)
             Text(label).font(.callout).fontWeight(.medium)
             Spacer()
-            DatePicker("", selection: $selection, displayedComponents: [.date, .hourAndMinute])
+            DatePicker("", selection: airportLocalSelection, displayedComponents: [.date, .hourAndMinute])
+                .environment(\.timeZone, timeZone ?? .current)
                 .labelsHidden().datePickerStyle(.compact).tint(AppTheme.primary)
         }
         .padding(.horizontal, 16).padding(.vertical, 14)
@@ -299,8 +349,6 @@ struct DatePickerRow: View {
 struct AddFlightStep2: View {
     @Binding var flights: [FlightLeg]
     let selectedOrigin: Airport?; let selectedDest: Airport?; let onAddFlight: () -> Void
-    private let dateFmt: DateFormatter = { let f = DateFormatter(); f.dateFormat = "d MMM"; return f }()
-    private let timeFmt: DateFormatter = { let f = DateFormatter(); f.dateFormat = "HH:mm"; return f }()
 
     var body: some View {
         ScrollView {
@@ -309,7 +357,7 @@ struct AddFlightStep2: View {
                     ForEach(Array(flights.enumerated()), id: \.offset) { idx, leg in
                         ItineraryLegRow(leg: leg, originAirport: idx == 0 ? selectedOrigin : nil,
                                         destAirport: idx == flights.count - 1 ? selectedDest : nil,
-                                        dateFmt: dateFmt, timeFmt: timeFmt, isLast: idx == flights.count - 1)
+                                        isLast: idx == flights.count - 1)
                     }
                 }
                 .padding(16).background(Color(.secondarySystemBackground)).clipShape(RoundedRectangle(cornerRadius: 16))
@@ -332,20 +380,35 @@ struct AddFlightStep2: View {
 
 struct ItineraryLegRow: View {
     let leg: FlightLeg; let originAirport: Airport?; let destAirport: Airport?
-    let dateFmt: DateFormatter; let timeFmt: DateFormatter; let isLast: Bool
+    let isLast: Bool
     private func city(_ iata: String, _ ap: Airport?) -> String {
         ap?.city ?? AirportStore.shared.airports.first(where: { $0.iata_code == iata })?.city ?? iata
     }
+
+    private func formattedDate(_ date: Date, timeZoneID: String) -> String {
+        let formatter = DateFormatter()
+        formatter.timeZone = TimeZone(identifier: timeZoneID)
+        formatter.dateFormat = "d MMM"
+        return formatter.string(from: date)
+    }
+
+    private func formattedTime(_ date: Date, timeZoneID: String) -> String {
+        let formatter = DateFormatter()
+        formatter.timeZone = TimeZone(identifier: timeZoneID)
+        formatter.dateFormat = "HH:mm"
+        return formatter.string(from: date)
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             HStack { Text(city(leg.origin, originAirport)).font(.subheadline).fontWeight(.medium); Spacer()
-                Text(dateFmt.string(from: leg.departure)).font(.caption).foregroundStyle(.secondary)
-                Text(timeFmt.string(from: leg.departure)).font(.caption).foregroundStyle(.secondary) }
+                Text(formattedDate(leg.departure, timeZoneID: leg.originTimeZoneID)).font(.caption).foregroundStyle(.secondary)
+                Text(formattedTime(leg.departure, timeZoneID: leg.originTimeZoneID)).font(.caption).foregroundStyle(.secondary) }
             .padding(.vertical, 8)
             HStack { Image(systemName: "arrow.down").font(.caption2).foregroundStyle(.tertiary); Spacer() }.padding(.vertical, 4)
             HStack { Text(city(leg.destination, destAirport)).font(.subheadline).fontWeight(.medium); Spacer()
-                Text(dateFmt.string(from: leg.arrival)).font(.caption).foregroundStyle(.secondary)
-                Text(timeFmt.string(from: leg.arrival)).font(.caption).foregroundStyle(.secondary) }
+                Text(formattedDate(leg.arrival, timeZoneID: leg.destinationTimeZoneID)).font(.caption).foregroundStyle(.secondary)
+                Text(formattedTime(leg.arrival, timeZoneID: leg.destinationTimeZoneID)).font(.caption).foregroundStyle(.secondary) }
             .padding(.vertical, 8)
             if !isLast { Divider().padding(.vertical, 8) }
         }

@@ -221,6 +221,39 @@ Assign `CircadianEngineTests.swift` to the real XCTest target and run both pipel
 
 ---
 
+## 2026-09-11 — Persist Airport Timezones on Flight Legs
+
+### Task
+Make flight-time entry timezone-aware, persist airport IANA timezone identifiers on each `FlightLeg`, and stop schedule generation from re-looking-up airport timezones.
+
+### Root Cause
+`FlightLeg` stored only absolute dates, while `DatePicker` used the device timezone and `AppState` later re-derived timezone context from the mutable airport database. This contradicted the UI's local-airport-time claim.
+
+### Files Changed
+- `Models/Models.swift` — add origin/destination IANA timezone IDs and read them directly when invoking the engine.
+- `Views/AddFlight/AddFlightView.swift` — capture timezone IDs from airport selections, render/persist date picker values in airport timezones, and format itinerary times in their respective airport timezones.
+- `06_CURRENT_STATE.md` — mark verified FlightLeg and DatePicker timezone work.
+- `07_CHANGELOG.md` — record this patch.
+
+### Behavior Changed
+- Airport selection writes its IANA timezone identifier into the corresponding leg.
+- Departure and arrival pickers use the origin and destination timezone respectively. Their bindings extract local date components in that timezone and recreate the absolute `Date` through `Calendar.date(from:)`.
+- `AppState.generateBlocks(for:)` now reads timezone IDs from the trip's own legs, not `AirportStore`.
+
+### Verification
+- Build: NOT VERIFIED — no `.xcodeproj` or workspace is present in the available source tree.
+- Tests: Existing XCTest target is unavailable.
+- Static checks/manual checks: Models/Engine type-check and AddFlight/test-source parse checks passed; `git diff --check` passed. Manual trace: Paris `Europe/Paris` local `2026-01-15 14:00` resolves to stored `2026-01-15T13:00:00Z`; it displays as `2026-01-15 20:00 GMT+7` on a Jakarta device but remains `14:00` when formatted in Paris.
+
+### Known Limitations
+- Existing in-memory legs created before this change have empty timezone IDs and cannot generate schedule blocks until recreated/edited; persistence and migration are not yet implemented.
+- Timeline timezone divider behavior remains a separate UI task.
+
+### Next Recommended Step
+Add a migration strategy when persistence is introduced, then implement the arrival/midnight timezone divider using the IDs stored on each flight leg.
+
+---
+
 # Entry Template
 
 Copy template ini untuk patch berikutnya:

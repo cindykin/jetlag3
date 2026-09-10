@@ -1,6 +1,6 @@
 # 06_CURRENT_STATE.md — ByeJetlag Implementation Status
 
-> **Snapshot:** 2026-09-10, berdasarkan source tree di `ByeJetlag`. File ini harus diperbarui setiap patch. Jangan menganggap TARGET sudah implemented jika belum dipindahkan ke bagian Implemented.
+> **Snapshot:** 2026-09-11, berdasarkan source tree di `ByeJetlag`. File ini harus diperbarui setiap patch. Jangan menganggap TARGET sudah implemented jika belum dipindahkan ke bagian Implemented.
 
 ## 1. Project Snapshot
 
@@ -73,9 +73,9 @@ ByeJetlag/
 - [ ] Manual reschedule 1x belum bekerja; CURRENT `RescheduleSheet` dipanggil dengan closure kosong.
 
 ### Timezone
-- [ ] `FlightLeg` belum menyimpan timezone origin/destination eksplisit.
-- [ ] `AddFlightView` DatePicker masih tidak timezone-aware.
-- [x] Offset/direction dihitung dari IANA timezone bandara pada tanggal flight saat blocks digenerate. *(2026-09-10)*
+- [x] `FlightLeg` menyimpan `originTimeZoneID` dan `destinationTimeZoneID` IANA dari airport yang dipilih. *(2026-09-11)*
+- [x] `AddFlightView` DatePicker menampilkan dan menyimpan departure/arrival menggunakan timezone airport eksplisit via `DateComponents` + `Calendar` ber-timezone IANA. *(2026-09-11)*
+- [x] Offset/direction dibaca dari IANA timezone yang tersimpan pada `FlightLeg` saat blocks digenerate. *(2026-09-11)*
 - [ ] Timeline timezone switch pada arrival belum terhubung ke data real.
 
 ### Persistence

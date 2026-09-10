@@ -137,6 +137,8 @@ struct FlightLeg: Identifiable, Codable {
     var id = UUID()
     var origin: String
     var destination: String
+    var originTimeZoneID: String = ""
+    var destinationTimeZoneID: String = ""
     var departure: Date
     var arrival: Date
 }
@@ -198,10 +200,8 @@ class AppState: ObservableObject {
         guard
             let firstFlight = trip.flights.first,
             let lastFlight = trip.flights.last,
-            let originAirport = AirportStore.shared.airports.first(where: { $0.iata_code == firstFlight.origin }),
-            let destinationAirport = AirportStore.shared.airports.first(where: { $0.iata_code == lastFlight.destination }),
-            let originTimeZone = TimeZone(identifier: originAirport.timezone),
-            let destinationTimeZone = TimeZone(identifier: destinationAirport.timezone)
+            let originTimeZone = TimeZone(identifier: firstFlight.originTimeZoneID),
+            let destinationTimeZone = TimeZone(identifier: lastFlight.destinationTimeZoneID)
         else {
             return []
         }
