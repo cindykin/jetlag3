@@ -138,11 +138,15 @@ struct TimelineBlockRow: View {
                     HStack(spacing: 12) {
                         ZStack {
                             RoundedRectangle(cornerRadius: 10)
-                                .fill(block.type.color.opacity(0.15))
+                                .fill(block.type.backgroundColor)
                                 .frame(width: 40, height: 40)
-                            Image(systemName: block.type.icon)
-                                .font(.system(size: 18, weight: .medium))
-                                .foregroundStyle(block.type.color)
+                            HStack(spacing: 2) {
+                                ForEach(block.type.icons, id: \.self) { icon in
+                                    Image(systemName: icon)
+                                        .font(.system(size: 18, weight: .medium))
+                                        .foregroundStyle(block.type.color)
+                                }
+                            }
                         }
                         VStack(alignment: .leading, spacing: 2) {
                             Text(block.type.rawValue)
@@ -182,11 +186,15 @@ struct BlockDetailModal: View {
                     HStack(spacing: 16) {
                         ZStack {
                             RoundedRectangle(cornerRadius: 16)
-                                .fill(block.type.color.opacity(0.15))
+                                .fill(block.type.backgroundColor)
                                 .frame(width: 60, height: 60)
-                            Image(systemName: block.type.icon)
-                                .font(.system(size: 28, weight: .medium))
-                                .foregroundStyle(block.type.color)
+                            HStack(spacing: 2) {
+                                ForEach(block.type.icons, id: \.self) { icon in
+                                    Image(systemName: icon)
+                                        .font(.system(size: 28, weight: .medium))
+                                        .foregroundStyle(block.type.color)
+                                }
+                            }
                         }
                         VStack(alignment: .leading, spacing: 4) {
                             Text(block.type.rawValue)
@@ -200,7 +208,7 @@ struct BlockDetailModal: View {
                     }
                     .padding(20)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(block.type.color.opacity(0.08))
+                    .background(block.type.backgroundColor)
                     .clipShape(RoundedRectangle(cornerRadius: 20))
 
                     // What to do

@@ -88,6 +88,38 @@ Move `AppState` to `Store/AppState.swift` while preserving the new injection pat
 
 ---
 
+## 2026-09-10 — Align BlockType Visual Mapping
+
+### Task
+Match every `BlockType` foreground/background color and SF Symbol with `05_DESIGN_SYSTEM.md` Sections 2–3.
+
+### Root Cause
+`BlockType` and a private `ScheduleView` extension contained ad-hoc visual mappings that differed from the design-system table. Multi-symbol block types also had no shared model representation.
+
+### Files Changed
+- `Models/Models.swift` — define the specified foreground/background colors and one-or-more SF Symbols per block type.
+- `Views/Schedule/ScheduleView.swift` — remove duplicate visual mapping and render `BlockType` colors/icons, including icon groups.
+- `Views/Components/Components.swift` — render block cards and detail headers from the shared colors/icon groups.
+- `06_CURRENT_STATE.md` — record the implemented mapping.
+- `07_CHANGELOG.md` — record this patch.
+
+### Behavior Changed
+- Each of the eight block types now uses exactly the table's foreground and background hex values.
+- Multi-icon types render their specified SF Symbols together in an `HStack`.
+
+### Verification
+- Build: NOT VERIFIED — no `.xcodeproj` or workspace is present in the available source tree.
+- Tests: No test targets/files found.
+- Static checks/manual checks: verified the eight mappings against the Section 2–3 table and confirmed `ScheduleView` no longer defines alternate block colors or icons.
+
+### Known Limitations
+- Non-schedule color tokens remain to be consolidated into `AppTheme` in a separate design-system task.
+
+### Next Recommended Step
+Move the remaining non-schedule color definitions into `AppTheme` without changing the approved block visual mapping.
+
+---
+
 # Entry Template
 
 Copy template ini untuk patch berikutnya:

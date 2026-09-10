@@ -13,60 +13,6 @@ private enum TL {
 // MARK: - BlockType UI Extensions (view-only presentation helpers)
 
 private extension BlockType {
-    /// Accent color used by timeline blocks.
-    /// Uses `Color(hex:)` (from OnboardingView Color extension) to parse hex strings correctly,
-    /// unlike the deleted `ActivityType` which used `Color("string")` (asset catalog lookup — wrong).
-    var accentColor: Color {
-        switch self {
-        case .flight:      return Color(hex: "#E8682A")
-        case .caffeine:    return Color(hex: "#7B4F2E")
-        case .noCaffeine:  return Color(.systemGray3)
-        case .seekLight:   return Color(hex: "#E8A020")
-        case .avoidLight:  return Color(.systemGray3)
-        case .sleep:       return Color(hex: "#4A7FD4")
-        case .melatonin:   return Color(hex: "#4A7FD4")
-        case .nap:         return Color(hex: "#7BAED4")
-        }
-    }
-
-    var bgColor: Color {
-        switch self {
-        case .flight:      return Color(hex: "#E8682A").opacity(0.10)
-        case .caffeine:    return Color(hex: "#7B4F2E").opacity(0.09)
-        case .noCaffeine:  return Color(.systemGray6)
-        case .seekLight:   return Color(hex: "#E8A020").opacity(0.12)
-        case .avoidLight:  return Color(.systemGray6)
-        case .sleep:       return Color(hex: "#4A7FD4").opacity(0.10)
-        case .melatonin:   return Color(hex: "#4A7FD4").opacity(0.10)
-        case .nap:         return Color(hex: "#7BAED4").opacity(0.10)
-        }
-    }
-
-    var primaryIcon: String {
-        switch self {
-        case .flight:      return "airplane"
-        case .caffeine:    return "cup.and.saucer.fill"
-        case .noCaffeine:  return "cup.and.saucer.fill"
-        case .seekLight:   return "sun.max.fill"
-        case .avoidLight:  return "sun.max.fill"
-        case .sleep:       return "bed.double.fill"
-        case .nap:         return "bed.double.fill"
-        case .melatonin:   return "bed.double.fill"
-        }
-    }
-
-    var badgeIcon: String? {
-        switch self {
-        case .noCaffeine, .avoidLight:
-            return "xmark.circle.fill"
-        default:
-            return nil
-        }
-    }
-
-    var showSunBadge: Bool { self == .nap }
-    var showPillBadge: Bool { self == .melatonin }
-
     /// Short display label for the timeline block.
     var displayLabel: String {
         switch self {
@@ -395,7 +341,7 @@ private struct BlockView: View {
         HStack(spacing: 0) {
             // Left accent bar
             Rectangle()
-                .fill(block.type.accentColor)
+                .fill(block.type.color)
                 .frame(width: TL.accentBarWidth)
                 .clipShape(
                     UnevenRoundedRectangle(
@@ -426,40 +372,20 @@ private struct BlockView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(block.type.bgColor)
+        .background(block.type.backgroundColor)
         .clipShape(RoundedRectangle(cornerRadius: TL.blockCornerRadius))
     }
 
     @ViewBuilder
     private var iconCluster: some View {
-        ZStack(alignment: .bottomTrailing) {
-            Image(systemName: block.type.primaryIcon)
-                .font(.system(size: TL.iconSize, weight: .regular))
-                .foregroundStyle(block.type.accentColor)
-
-            if let badge = block.type.badgeIcon {
-                Image(systemName: badge)
-                    .font(.system(size: 11, weight: .bold))
-                    .foregroundStyle(Color(.systemGray2))
-                    .background(Color(.systemBackground).clipShape(Circle()))
-                    .offset(x: 7, y: 7)
-            }
-            if block.type.showSunBadge {
-                Image(systemName: "sun.max.fill")
-                    .font(.system(size: 10))
-                    .foregroundStyle(Color(hex: "#E8A020"))
-                    .background(Color(.systemBackground).clipShape(Circle()))
-                    .offset(x: 9, y: -9)
-            }
-            if block.type.showPillBadge {
-                Image(systemName: "pills.fill")
-                    .font(.system(size: 10))
-                    .foregroundStyle(Color(hex: "#9B59B6"))
-                    .background(Color(.systemBackground).clipShape(Circle()))
-                    .offset(x: 9, y: -9)
+        HStack(spacing: 2) {
+            ForEach(block.type.icons, id: \.self) { icon in
+                Image(systemName: icon)
+                    .font(.system(size: TL.iconSize, weight: .regular))
+                    .foregroundStyle(block.type.color)
             }
         }
-        .frame(width: TL.iconSize + 10, height: TL.iconSize + 10)
+        .frame(height: TL.iconSize + 10)
     }
 }
 
@@ -511,11 +437,15 @@ struct BlockDetailSheet: View {
                     HStack(spacing: 14) {
                         ZStack {
                             RoundedRectangle(cornerRadius: 14)
-                                .fill(block.type.accentColor.opacity(0.13))
+                                .fill(block.type.backgroundColor)
                                 .frame(width: 56, height: 56)
-                            Image(systemName: block.type.primaryIcon)
-                                .font(.system(size: 26, weight: .regular))
-                                .foregroundStyle(block.type.accentColor)
+                            HStack(spacing: 2) {
+                                ForEach(block.type.icons, id: \.self) { icon in
+                                    Image(systemName: icon)
+                                        .font(.system(size: 26, weight: .regular))
+                                        .foregroundStyle(block.type.color)
+                                }
+                            }
                         }
                         VStack(alignment: .leading, spacing: 4) {
                             Text(block.type.rawValue)
@@ -526,7 +456,7 @@ struct BlockDetailSheet: View {
                     }
                     .padding(16)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(block.type.accentColor.opacity(0.07))
+                    .background(block.type.backgroundColor)
                     .clipShape(RoundedRectangle(cornerRadius: 16))
 
                     DetailInfoSection(title: "What I should do?",
@@ -536,7 +466,7 @@ struct BlockDetailSheet: View {
                                       icon: "arrow.triangle.2.circlepath", color: Color(hex: "#4A90E2"),
                                       content: block.type.alternatives)
                     DetailInfoSection(title: "Why is this so important?",
-                                      icon: "info.circle.fill", color: block.type.accentColor,
+                                      icon: "info.circle.fill", color: block.type.color,
                                       content: block.type.whyItMatters)
 
                     if block.type != .flight {

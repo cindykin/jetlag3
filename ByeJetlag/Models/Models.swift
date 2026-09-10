@@ -12,29 +12,42 @@ enum BlockType: String, CaseIterable, Codable {
     case melatonin = "Take Melatonin"
     case flight = "Flight"
 
-    var icon: String {
+    var icons: [String] {
         switch self {
-        case .seekLight:   return "sun.max.fill"
-        case .avoidLight:  return "moon.fill"
-        case .sleep:       return "bed.double.fill"
-        case .nap:         return "zzz"
-        case .caffeine:    return "cup.and.saucer.fill"
-        case .noCaffeine:  return "cup.and.saucer"
-        case .melatonin:   return "pills.fill"
-        case .flight:      return "airplane"
+        case .seekLight:   return ["sun.max.fill"]
+        case .avoidLight:  return ["sun.max.fill", "x.circle"]
+        case .sleep:       return ["bed.double.fill"]
+        case .nap:         return ["bed.double.fill", "sun.max.fill"]
+        case .caffeine:    return ["cup.and.saucer.fill"]
+        case .noCaffeine:  return ["cup.and.saucer.fill", "x.circle"]
+        case .melatonin:   return ["bed.double.fill", "pill.fill"]
+        case .flight:      return ["airplane.up.right"]
         }
     }
 
     var color: Color {
         switch self {
-        case .seekLight:   return AppTheme.primary
-        case .avoidLight:  return Color(hex: "#7B68EE")
-        case .sleep:       return Color(hex: "#4A90E2")
-        case .nap:         return Color(hex: "#87CEEB")
-        case .caffeine:    return Color(hex: "#8B4513")
-        case .noCaffeine:  return Color(.systemGray3)
-        case .melatonin:   return Color(hex: "#9B59B6")
-        case .flight:      return Color(.systemGray2)
+        case .seekLight:   return Color(hex: "#FFBE00")
+        case .avoidLight:  return Color(hex: "#808080")
+        case .sleep:       return Color(hex: "#1D57AF")
+        case .nap:         return Color(hex: "#1D7DAF")
+        case .caffeine:    return Color(hex: "#855216")
+        case .noCaffeine:  return Color(hex: "#808080")
+        case .melatonin:   return Color(hex: "#1D57AF")
+        case .flight:      return Color(hex: "#111111")
+        }
+    }
+
+    var backgroundColor: Color {
+        switch self {
+        case .seekLight:   return Color(hex: "#FFF9EC")
+        case .avoidLight:  return Color(hex: "#F2F2F2")
+        case .sleep:       return Color(hex: "#EDF3FC")
+        case .nap:         return Color(hex: "#EEF7FC")
+        case .caffeine:    return Color(hex: "#FCF5ED")
+        case .noCaffeine:  return Color(hex: "#F2F2F2")
+        case .melatonin:   return Color(hex: "#EDF3FC")
+        case .flight:      return Color(hex: "#F2F2F2")
         }
     }
 

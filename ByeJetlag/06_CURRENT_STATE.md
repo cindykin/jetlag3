@@ -48,6 +48,7 @@ ByeJetlag/
 - [x] `ScheduleView` render dari `trip.blocks` (`[TimelineBlock]`), bukan duplicate model.
 - [x] Duplicate domain model (`ActivityType`, `ActivityItem`, `TimelineSection`, `MockSchedule`) dihapus dari `ScheduleView.swift`.
 - [x] `AppState` dibuat sekali di root `ByeJetLagApp` dan di-inject melalui `.environmentObject()`.
+- [x] `BlockType` memiliki foreground, background, dan SF Symbols sesuai `05_DESIGN_SYSTEM.md` Section 2–3; timeline dan block detail mengonsumsi mapping tersebut. *(2026-09-10)*
 
 > Checklist di atas hanya berarti code/structure ditemukan, **bukan berarti behavior sudah benar**.
 
@@ -89,7 +90,8 @@ ByeJetlag/
 
 - [x] `ScheduleView` mengikuti data flow real (`trip.blocks`). *(2026-09-10)*
 - [x] Schedule timeline berbasis `TimelineBlock` duration/time, bukan mock section model. *(2026-09-10)*
-- [ ] Warna schedule masih tersebar di beberapa sistem.
+- [x] Warna dan ikon untuk delapan `BlockType` sesuai tabel design system. *(2026-09-10)*
+- [ ] Token warna non-schedule masih belum seluruhnya dikonsolidasikan ke `AppTheme`.
 - [ ] `Image("onboard1")` dan `Image("onboard2")` dipanggil tetapi asset tersebut tidak ditemukan pada `Assets.xcassets` archive.
 - [ ] Onboarding yang dibuka sebagai Guide dari Home tidak memiliki dismissal behavior yang benar; aksi utama hanya mengubah `hasSeenOnboarding`.
 - [ ] Onboarding masih memiliki color extension/component inline yang bertabrakan dengan target design system.
