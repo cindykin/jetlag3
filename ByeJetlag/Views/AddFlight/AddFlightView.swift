@@ -12,7 +12,7 @@ enum FlowPage: Equatable {
 struct AddFlightView: View {
     let onComplete: (Trip) -> Void
     @Environment(\.dismiss) private var dismiss
-    @StateObject private var appState = AppState.shared
+    @EnvironmentObject private var appState: AppState
 
     @State private var pageIndex = 0
     @State private var needsPersonalization = false

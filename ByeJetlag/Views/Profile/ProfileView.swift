@@ -2,7 +2,7 @@ import SwiftUI
 import Combine
 
 struct ProfileView: View {
-    @StateObject private var appState = AppState.shared
+    @EnvironmentObject private var appState: AppState
     @Environment(\.dismiss) private var dismiss
     @State private var showEditProfile = false
 
@@ -133,7 +133,7 @@ struct ProfileDetailRow: View {
 
 // MARK: - Edit Profile View
 struct EditProfileView: View {
-    @StateObject private var appState = AppState.shared
+    @EnvironmentObject private var appState: AppState
     @Environment(\.dismiss) private var dismiss
 
     @State private var name: String = ""
@@ -247,4 +247,5 @@ struct PlaceholderDetailView: View {
 // MARK: - Preview
 #Preview {
     ProfileView()
+        .environmentObject(AppState())
 }

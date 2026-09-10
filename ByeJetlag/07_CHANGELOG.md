@@ -53,6 +53,41 @@ Establish a buildable baseline from the real Xcode project, then perform the fir
 
 ---
 
+## 2026-09-10 — Inject AppState from App Root
+
+### Task
+Remove the `AppState.shared` singleton and inject one `AppState` instance from `ByeJetLagApp` with `.environmentObject()`.
+
+### Root Cause
+Views owned a global `AppState.shared` through `@StateObject`, creating direct singleton coupling and preventing root-controlled state injection.
+
+### Files Changed
+- `App/ByeJetLagApp.swift` — create and inject the root-owned `AppState`.
+- `Models/Models.swift` — remove the singleton and expose an initializer for root/preview injection.
+- `Views/Home/HomeView.swift` — consume injected state and provide isolated preview instances.
+- `Views/AddFlight/AddFlightView.swift` — consume injected state.
+- `Views/Profile/ProfileView.swift` — consume injected state in profile and edit-profile screens.
+- `06_CURRENT_STATE.md` — record the implemented state-management change.
+- `07_CHANGELOG.md` — record this patch.
+
+### Behavior Changed
+- The app creates one `AppState` at its SwiftUI root; descendant views use that same instance through `@EnvironmentObject`.
+- `generateBlocks(for:)` was not modified.
+
+### Verification
+- Build: NOT VERIFIED — no `.xcodeproj` or workspace is present in the available source tree.
+- Tests: No test targets/files found.
+- Static checks/manual checks: confirmed no `AppState.shared` references remain and every direct `AppState` consumer is supplied by the root environment or its preview.
+
+### Known Limitations
+- `AppState` remains in `Models.swift`; moving it to the target `Store/` boundary is a separate architecture task.
+- Schedule generation remains the existing hardcoded template by task constraint.
+
+### Next Recommended Step
+Move `AppState` to `Store/AppState.swift` while preserving the new injection path, then introduce the service boundary separately.
+
+---
+
 # Entry Template
 
 Copy template ini untuk patch berikutnya:

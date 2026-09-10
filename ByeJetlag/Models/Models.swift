@@ -167,13 +167,11 @@ struct Trip: Identifiable, Codable, Hashable {
 
 // MARK: - App State
 class AppState: ObservableObject {
-    static let shared = AppState()
-
     @Published var trips: [Trip] = []
     @Published var profile: UserProfile = UserProfile()
     @Published var hasCompletedProfile: Bool = false
 
-    private init() { loadSample() }
+    init() { loadSample() }
 
     func addTrip(_ trip: Trip) {
         trips.insert(trip, at: 0)

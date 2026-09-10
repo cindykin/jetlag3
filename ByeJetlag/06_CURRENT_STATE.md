@@ -1,6 +1,6 @@
 # 06_CURRENT_STATE.md — ByeJetlag Implementation Status
 
-> **Snapshot:** 2026-09-09, berdasarkan source tree di `ByeJetlag`. File ini harus diperbarui setiap patch. Jangan menganggap TARGET sudah implemented jika belum dipindahkan ke bagian Implemented.
+> **Snapshot:** 2026-09-10, berdasarkan source tree di `ByeJetlag`. File ini harus diperbarui setiap patch. Jangan menganggap TARGET sudah implemented jika belum dipindahkan ke bagian Implemented.
 
 ## 1. Project Snapshot
 
@@ -47,6 +47,7 @@ ByeJetlag/
 - [x] Existing knowledge base untuk product/architecture/algorithm/design.
 - [x] `ScheduleView` render dari `trip.blocks` (`[TimelineBlock]`), bukan duplicate model.
 - [x] Duplicate domain model (`ActivityType`, `ActivityItem`, `TimelineSection`, `MockSchedule`) dihapus dari `ScheduleView.swift`.
+- [x] `AppState` dibuat sekali di root `ByeJetLagApp` dan di-inject melalui `.environmentObject()`.
 
 > Checklist di atas hanya berarti code/structure ditemukan, **bukan berarti behavior sudah benar**.
 
@@ -100,7 +101,7 @@ ByeJetlag/
 
 ## 5. Architecture Debt
 
-- [ ] `AppState.shared` singleton masih digunakan di beberapa View.
+- [x] `AppState.shared` dihapus; Home, Add Flight, dan Profile membaca instance yang sama melalui `@EnvironmentObject`. *(2026-09-10)*
 - [ ] `AppState` masih berada dalam `Models.swift`.
 - [ ] Services layer target belum dibuat.
 - [ ] `AddFlightViewModel` target belum dibuat.

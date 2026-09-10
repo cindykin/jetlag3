@@ -2,7 +2,7 @@ import SwiftUI
 import Combine
 
 struct HomeView: View {
-    @StateObject private var appState = AppState.shared
+    @EnvironmentObject private var appState: AppState
     @State private var showAddFlight = false
     @State private var showProfile = false
     @State private var showGuide = false
@@ -244,19 +244,22 @@ struct ActionIcon: View {
 }
 
 // MARK: - Preview
-#Preview("Empty") { HomeView() }
+#Preview("Empty") {
+    HomeView()
+        .environmentObject(AppState())
+}
 
 #Preview("With trips") {
-    let _: Void = {
-        let state = AppState.shared
-        let leg = FlightLeg(
-            origin: "CGK", destination: "CDG",
-            departure: Date(), arrival: Date().addingTimeInterval(3600 * 14)
-        )
-        var trip = Trip(flights: [leg], blocks: [])
-        trip.originCity = "Jakarta"
-        trip.destinationCity = "Paris"
-        state.trips = [trip]
-    }()
+    let state = AppState()
+    let leg = FlightLeg(
+        origin: "CGK", destination: "CDG",
+        departure: Date(), arrival: Date().addingTimeInterval(3600 * 14)
+    )
+    var trip = Trip(flights: [leg], blocks: [])
+    trip.originCity = "Jakarta"
+    trip.destinationCity = "Paris"
+    state.trips = [trip]
+
     HomeView()
+        .environmentObject(state)
 }
