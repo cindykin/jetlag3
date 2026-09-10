@@ -1,196 +1,5 @@
 import SwiftUI
 
-// MARK: - Mock Data Model (backend-ready: Identifiable + Decodable-friendly)
-import SwiftUI
-
-// MARK: - Activity Type
-
-enum ActivityType: String, CaseIterable, Codable {
-    case flight = "Flight"
-    case caffeine = "Caffeine"
-    case avoidCaffeine = "Avoid Caffeine"
-    case seekLight = "Seek Light"
-    case avoidLight = "Avoid Light"
-    case sleep = "Go to Sleep"
-    case nap = "Take a nap\n(If can)"
-    case melatonin = "Take melantonin\n& Go to Sleep"
-
-    var accentColor: Color {
-        switch self {
-        case .flight: return Color("#E8682A")
-        case .caffeine: return Color("#7B4F2E")
-        case .avoidCaffeine, .avoidLight: return Color(.systemGray3)
-        case .seekLight: return Color("#E8A020")
-        case .sleep, .melatonin: return Color("#4A7FD4")
-        case .nap: return Color("#7BAED4")
-        }
-    }
-
-    var bgColor: Color {
-        switch self {
-        case .flight: return Color("#E8682A").opacity(0.10)
-        case .caffeine: return Color("#7B4F2E").opacity(0.09)
-        case .avoidCaffeine, .avoidLight: return Color(.systemGray6)
-        case .seekLight: return Color("#E8A020").opacity(0.12)
-        case .sleep, .melatonin: return Color("#4A7FD4").opacity(0.10)
-        case .nap: return Color("#7BAED4").opacity(0.10)
-        }
-    }
-
-    var primaryIcon: String {
-        switch self {
-        case .flight: return "airplane"
-        case .caffeine, .avoidCaffeine: return "cup.and.saucer.fill"
-        case .seekLight, .avoidLight: return "sun.max.fill"
-        case .sleep, .nap, .melatonin: return "bed.double.fill"
-        }
-    }
-
-    var badgeIcon: String? {
-        switch self {
-        case .avoidCaffeine, .avoidLight:
-            return "xmark.circle.fill"
-        default:
-            return nil
-        }
-    }
-
-    var showSunBadge: Bool { self == .nap }
-    var showPillBadge: Bool { self == .melatonin }
-}
-
-// MARK: - Activity Item
-
-struct ActivityItem: Identifiable, Codable {
-    var id: UUID = UUID()
-    var type: ActivityType
-    var startHour: Double
-    var durationHours: Double
-    var timezone: String
-    var date: String
-
-    var endHour: Double { startHour + durationHours }
-
-    init(_ type: ActivityType, start: Double, duration: Double, tz: String, date: String) {
-        self.type = type
-        self.startHour = start
-        self.durationHours = duration
-        self.timezone = tz
-        self.date = date
-    }
-}
-
-// MARK: - Timeline Section
-
-struct TimelineSection: Identifiable {
-    var id: String { "\(dateLabel)-\(timezoneLabel ?? "orig")" }
-
-    var dateLabel: String
-    var timezoneLabel: String?
-    var localTimeLabel: String
-    var startHour: Double
-    var endHour: Double
-    var activities: [ActivityItem]
-    var isDividerHighEmphasis: Bool = false
-
-    // ✅ Safer initializer (order flexible)
-    init(
-        dateLabel: String,
-        timezoneLabel: String?,
-        localTimeLabel: String,
-        startHour: Double,
-        endHour: Double,
-        activities: [ActivityItem],
-        isDividerHighEmphasis: Bool = false
-    ) {
-        self.dateLabel = dateLabel
-        self.timezoneLabel = timezoneLabel
-        self.localTimeLabel = localTimeLabel
-        self.startHour = startHour
-        self.endHour = endHour
-        self.activities = activities
-        self.isDividerHighEmphasis = isDividerHighEmphasis
-    }
-}
-
-// MARK: - Mock Schedule
-
-enum MockSchedule {
-    static let sections: [TimelineSection] = [
-
-        TimelineSection(
-            dateLabel: "Tue, 10 April",
-            timezoneLabel: nil,
-            localTimeLabel: "Jakarta 17:00",
-            startHour: 17,
-            endHour: 24,
-            activities: [
-                ActivityItem(.flight, start: 17.0, duration: 7.0, tz: "Jakarta", date: "1"),
-                ActivityItem(.caffeine, start: 17.5, duration: 1.5, tz: "Jakarta", date: "1"),
-                ActivityItem(.sleep, start: 19.25, duration: 3.5, tz: "Jakarta", date: "1"),
-                ActivityItem(.caffeine, start: 22.0, duration: 1.0, tz: "Jakarta", date: "1"),
-                ActivityItem(.nap, start: 22.5, duration: 1.0, tz: "Jakarta", date: "1"),
-            ]
-        ),
-
-        TimelineSection(
-            dateLabel: "Tue, 10 April",
-            timezoneLabel: nil,
-            localTimeLabel: "Jakarta 00:00",
-            startHour: 0,
-            endHour: 3.5,
-            activities: [
-                ActivityItem(.flight, start: 0.0, duration: 3.5, tz: "Jakarta", date: "2"),
-                ActivityItem(.sleep, start: 0.0, duration: 3.5, tz: "Jakarta", date: "2"),
-            ]
-        ),
-
-        TimelineSection(
-            dateLabel: "Wed, 11 April",
-            timezoneLabel: "Doha Time",
-            localTimeLabel: "00:00",
-            startHour: 0,
-            endHour: 9.5,
-            activities: [
-                ActivityItem(.flight, start: 0.0, duration: 2.0, tz: "Doha", date: "3"),
-                ActivityItem(.flight, start: 2.0, duration: 7.5, tz: "Doha", date: "3"),
-                ActivityItem(.seekLight, start: 3.0, duration: 5.0, tz: "Doha", date: "3"),
-                ActivityItem(.sleep, start: 8.0, duration: 1.5, tz: "Doha", date: "3"),
-            ],
-            isDividerHighEmphasis: true
-        ),
-
-        TimelineSection(
-            dateLabel: "Thu, 11 April",
-            timezoneLabel: "Paris Time",
-            localTimeLabel: "09:00",
-            startHour: 9,
-            endHour: 24,
-            activities: [
-                ActivityItem(.caffeine, start: 10.0, duration: 1.0, tz: "Paris", date: "4"),
-                ActivityItem(.avoidLight, start: 10.5, duration: 0.75, tz: "Paris", date: "4"),
-                ActivityItem(.nap, start: 11.75, duration: 1.5, tz: "Paris", date: "4"),
-                ActivityItem(.caffeine, start: 13.75, duration: 1.0, tz: "Paris", date: "4"),
-                ActivityItem(.avoidCaffeine, start: 15.5, duration: 1.5, tz: "Paris", date: "4"),
-                ActivityItem(.seekLight, start: 19.5, duration: 3.5, tz: "Paris", date: "4"),
-                ActivityItem(.avoidLight, start: 21.75, duration: 1.5, tz: "Paris", date: "4"),
-            ],
-            isDividerHighEmphasis: true
-        ),
-
-        TimelineSection(
-            dateLabel: "Fri, 12 April",
-            timezoneLabel: nil,
-            localTimeLabel: "Paris 00:00",
-            startHour: 0,
-            endHour: 5.5,
-            activities: [
-                ActivityItem(.sleep, start: 0.5, duration: 5.0, tz: "Paris", date: "5"),
-            ]
-        ),
-    ]
-}
-
 // MARK: - Layout Constants
 private enum TL {
     static let hourHeight: CGFloat        = 56
@@ -201,14 +10,187 @@ private enum TL {
     static let iconSize: CGFloat          = 22
 }
 
+// MARK: - BlockType UI Extensions (view-only presentation helpers)
+
+private extension BlockType {
+    /// Accent color used by timeline blocks.
+    /// Uses `Color(hex:)` (from OnboardingView Color extension) to parse hex strings correctly,
+    /// unlike the deleted `ActivityType` which used `Color("string")` (asset catalog lookup — wrong).
+    var accentColor: Color {
+        switch self {
+        case .flight:      return Color(hex: "#E8682A")
+        case .caffeine:    return Color(hex: "#7B4F2E")
+        case .noCaffeine:  return Color(.systemGray3)
+        case .seekLight:   return Color(hex: "#E8A020")
+        case .avoidLight:  return Color(.systemGray3)
+        case .sleep:       return Color(hex: "#4A7FD4")
+        case .melatonin:   return Color(hex: "#4A7FD4")
+        case .nap:         return Color(hex: "#7BAED4")
+        }
+    }
+
+    var bgColor: Color {
+        switch self {
+        case .flight:      return Color(hex: "#E8682A").opacity(0.10)
+        case .caffeine:    return Color(hex: "#7B4F2E").opacity(0.09)
+        case .noCaffeine:  return Color(.systemGray6)
+        case .seekLight:   return Color(hex: "#E8A020").opacity(0.12)
+        case .avoidLight:  return Color(.systemGray6)
+        case .sleep:       return Color(hex: "#4A7FD4").opacity(0.10)
+        case .melatonin:   return Color(hex: "#4A7FD4").opacity(0.10)
+        case .nap:         return Color(hex: "#7BAED4").opacity(0.10)
+        }
+    }
+
+    var primaryIcon: String {
+        switch self {
+        case .flight:      return "airplane"
+        case .caffeine:    return "cup.and.saucer.fill"
+        case .noCaffeine:  return "cup.and.saucer.fill"
+        case .seekLight:   return "sun.max.fill"
+        case .avoidLight:  return "sun.max.fill"
+        case .sleep:       return "bed.double.fill"
+        case .nap:         return "bed.double.fill"
+        case .melatonin:   return "bed.double.fill"
+        }
+    }
+
+    var badgeIcon: String? {
+        switch self {
+        case .noCaffeine, .avoidLight:
+            return "xmark.circle.fill"
+        default:
+            return nil
+        }
+    }
+
+    var showSunBadge: Bool { self == .nap }
+    var showPillBadge: Bool { self == .melatonin }
+
+    /// Short display label for the timeline block.
+    var displayLabel: String {
+        switch self {
+        case .seekLight:   return "Seek Light"
+        case .avoidLight:  return "Avoid Light"
+        case .sleep:       return "Go to Sleep"
+        case .nap:         return "Take a nap\n(If can)"
+        case .caffeine:    return "Caffeine"
+        case .noCaffeine:  return "Avoid Caffeine"
+        case .melatonin:   return "Take melantonin\n& Go to Sleep"
+        case .flight:      return "Flight"
+        }
+    }
+}
+
+// MARK: - Day Section (internal grouping, not a domain model)
+
+/// Groups `TimelineBlock`s into per-day rendering sections.
+/// This is a **view-local layout helper**, NOT a domain model — it exists only to
+/// organize blocks for the positioned timeline grid and is derived from `[TimelineBlock]`.
+private struct DaySection: Identifiable {
+    let id: String
+    let dateLabel: String
+    let localTimeLabel: String
+    let startHour: Double
+    let endHour: Double
+    let blocks: [PositionedBlock]
+}
+
+/// A `TimelineBlock` annotated with hour-based offsets for timeline positioning.
+private struct PositionedBlock: Identifiable {
+    let id: UUID
+    let block: TimelineBlock
+    let startHour: Double
+    let durationHours: Double
+
+    var endHour: Double { startHour + durationHours }
+}
+
+// MARK: - Section Builder
+
+/// Converts `[TimelineBlock]` into `[DaySection]` for timeline rendering.
+/// Each section covers a contiguous range of hours within one calendar day.
+private func buildSections(from blocks: [TimelineBlock]) -> [DaySection] {
+    guard !blocks.isEmpty else { return [] }
+
+    let sorted = blocks.sorted { $0.startTime < $1.startTime }
+    let calendar = Calendar.current
+
+    // Group blocks by calendar day of their startTime
+    var dayGroups: [(date: Date, blocks: [TimelineBlock])] = []
+    for block in sorted {
+        let dayStart = calendar.startOfDay(for: block.startTime)
+        if let lastIdx = dayGroups.indices.last, dayGroups[lastIdx].date == dayStart {
+            dayGroups[lastIdx].blocks.append(block)
+        } else {
+            dayGroups.append((date: dayStart, blocks: [block]))
+        }
+    }
+
+    let dateFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "EEE, dd MMM"
+        return f
+    }()
+
+    let timeFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "HH:mm"
+        return f
+    }()
+
+    var sections: [DaySection] = []
+
+    for (index, group) in dayGroups.enumerated() {
+        let dayStart = group.date
+
+        // Convert blocks to positioned blocks with hour offsets
+        let positioned: [PositionedBlock] = group.blocks.map { block in
+            let startInterval = block.startTime.timeIntervalSince(dayStart)
+            let startH = startInterval / 3600.0
+            let durationH = block.endTime.timeIntervalSince(block.startTime) / 3600.0
+            return PositionedBlock(
+                id: block.id,
+                block: block,
+                startHour: startH,
+                durationHours: max(durationH, 0)
+            )
+        }
+
+        guard let minHour = positioned.map(\.startHour).min(),
+              let maxHour = positioned.map(\.endHour).max() else { continue }
+
+        let sectionStartHour = floor(minHour)
+        let sectionEndHour = ceil(maxHour)
+
+        let dateLabel = dateFormatter.string(from: dayStart)
+        let timeLabel = timeFormatter.string(from: group.blocks.first?.startTime ?? dayStart)
+
+        sections.append(DaySection(
+            id: "\(index)-\(dateLabel)",
+            dateLabel: dateLabel,
+            localTimeLabel: timeLabel,
+            startHour: sectionStartHour,
+            endHour: max(sectionEndHour, sectionStartHour + 1), // at least 1 hour range
+            blocks: positioned
+        ))
+    }
+
+    return sections
+}
+
 // MARK: - ScheduleView
 struct ScheduleView: View {
     let trip: Trip
-    @State private var selectedActivity: ActivityItem?
+    @State private var selectedBlock: TimelineBlock?
     @State private var showDetail = false
     @State private var showReschedule = false
     @State private var rescheduleStart = Date()
     @State private var rescheduleEnd   = Date()
+
+    private var sections: [DaySection] {
+        buildSections(from: trip.blocks)
+    }
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -216,17 +198,23 @@ struct ScheduleView: View {
 
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 0) {
-                    ForEach(MockSchedule.sections) { section in
-                        SectionView(section: section) { item in
-                            selectedActivity = item
-                            showDetail = true
+                    if sections.isEmpty {
+                        emptyState
+                    } else {
+                        ForEach(sections) { section in
+                            SectionView(section: section) { block in
+                                selectedBlock = block
+                                showDetail = true
+                            }
                         }
+                        EndOfPlanFooter().padding(.bottom, 72)
                     }
-                    EndOfPlanFooter().padding(.bottom, 72)
                 }
             }
 
-            TapHintPill().padding(.bottom, 20)
+            if !sections.isEmpty {
+                TapHintPill().padding(.bottom, 20)
+            }
         }
         .navigationTitle(
             "\(trip.originCity.isEmpty ? trip.originCode : trip.originCity) - " +
@@ -245,8 +233,8 @@ struct ScheduleView: View {
             }
         }
         .sheet(isPresented: $showDetail) {
-            if let a = selectedActivity {
-                ActivityDetailSheet(activity: a) {
+            if let block = selectedBlock {
+                BlockDetailSheet(block: block) {
                     showDetail = false
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { showReschedule = true }
                 }
@@ -256,12 +244,28 @@ struct ScheduleView: View {
             RescheduleSheet(sleepStart: $rescheduleStart, sleepEnd: $rescheduleEnd) { }
         }
     }
+
+    private var emptyState: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "calendar.badge.clock")
+                .font(.system(size: 40))
+                .foregroundStyle(Color(.tertiaryLabel))
+            Text("No schedule yet")
+                .font(.headline)
+                .foregroundStyle(Color(.secondaryLabel))
+            Text("Your adaptation plan will appear here once generated.")
+                .font(.subheadline)
+                .foregroundStyle(Color(.tertiaryLabel))
+                .multilineTextAlignment(.center)
+        }
+        .padding(40)
+    }
 }
 
 // MARK: - Section View
 private struct SectionView: View {
-    let section: TimelineSection
-    let onTap: (ActivityItem) -> Void
+    let section: DaySection
+    let onTap: (TimelineBlock) -> Void
 
     var body: some View {
         VStack(spacing: 0) {
@@ -273,7 +277,7 @@ private struct SectionView: View {
 
 // MARK: - Section Header
 private struct SectionHeader: View {
-    let section: TimelineSection
+    let section: DaySection
 
     var body: some View {
         HStack(alignment: .center, spacing: 0) {
@@ -283,30 +287,6 @@ private struct SectionHeader: View {
                 .foregroundStyle(.primary)
 
             Spacer()
-
-            if let tz = section.timezoneLabel {
-                HStack(spacing: 4) {
-                    Image(systemName: "clock.arrow.2.circlepath")
-                        .font(.system(size: 10, weight: .medium))
-                    Text(tz)
-                        .font(.caption)
-                        .fontWeight(.medium)
-                }
-                .foregroundStyle(
-                    section.isDividerHighEmphasis
-                    ? Color("#E8682A")
-                    : Color(.secondaryLabel)
-                )
-                .padding(.horizontal, 10).padding(.vertical, 5)
-                .background(
-                    Capsule().fill(
-                        section.isDividerHighEmphasis
-                        ? Color("#E8682A").opacity(0.10)
-                        : Color(.secondarySystemBackground)
-                    )
-                )
-                .padding(.trailing, 8)
-            }
 
             Text(section.localTimeLabel)
                 .font(.footnote)
@@ -320,8 +300,8 @@ private struct SectionHeader: View {
 
 // MARK: - Timeline Grid
 private struct TimelineGrid: View {
-    let section: TimelineSection
-    let onTap: (ActivityItem) -> Void
+    let section: DaySection
+    let onTap: (TimelineBlock) -> Void
 
     private var hourTicks: [Int] {
         let s = Int(floor(section.startHour))
@@ -331,7 +311,7 @@ private struct TimelineGrid: View {
     private var totalHeight: CGFloat {
         CGFloat(section.endHour - section.startHour) * TL.hourHeight
     }
-    private var columns: [[ActivityItem]] { layoutColumns(section.activities) }
+    private var columns: [[PositionedBlock]] { layoutColumns(section.blocks) }
 
     var body: some View {
         HStack(alignment: .top, spacing: 0) {
@@ -365,7 +345,7 @@ private struct TimelineGrid: View {
                     }
                 }
 
-                // Activity columns
+                // Block columns
                 HStack(alignment: .top, spacing: 4) {
                     ForEach(columns.indices, id: \.self) { ci in
                         let col = columns[ci]
@@ -374,10 +354,10 @@ private struct TimelineGrid: View {
                             ForEach(col) { item in
                                 let top = CGFloat(item.startHour - section.startHour) * TL.hourHeight
                                 let h   = max(CGFloat(item.durationHours) * TL.hourHeight, TL.blockMinHeight)
-                                ActivityBlock(activity: item)
+                                BlockView(block: item.block)
                                     .frame(maxWidth: .infinity).frame(height: h)
                                     .offset(y: top)
-                                    .onTapGesture { onTap(item) }
+                                    .onTapGesture { onTap(item.block) }
                             }
                         }
                     }
@@ -392,8 +372,8 @@ private struct TimelineGrid: View {
 }
 
 // MARK: - Column layout (greedy overlap resolver)
-private func layoutColumns(_ items: [ActivityItem]) -> [[ActivityItem]] {
-    var columns: [[ActivityItem]] = []
+private func layoutColumns(_ items: [PositionedBlock]) -> [[PositionedBlock]] {
+    var columns: [[PositionedBlock]] = []
     var colEnd: [Double] = []
     for item in items.sorted(by: { $0.startHour < $1.startHour }) {
         var placed = false
@@ -407,15 +387,15 @@ private func layoutColumns(_ items: [ActivityItem]) -> [[ActivityItem]] {
     return columns
 }
 
-// MARK: - Activity Block
-private struct ActivityBlock: View {
-    let activity: ActivityItem
+// MARK: - Block View (was ActivityBlock)
+private struct BlockView: View {
+    let block: TimelineBlock
 
     var body: some View {
         HStack(spacing: 0) {
             // Left accent bar
             Rectangle()
-                .fill(activity.type.accentColor)
+                .fill(block.type.accentColor)
                 .frame(width: TL.accentBarWidth)
                 .clipShape(
                     UnevenRoundedRectangle(
@@ -432,7 +412,7 @@ private struct ActivityBlock: View {
                     .padding(.leading, 8)
                     .padding(.top, 8)
 
-                Text(activity.type.rawValue)
+                Text(block.type.displayLabel)
                     .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(Color(.label))
                     .lineLimit(3)
@@ -446,35 +426,35 @@ private struct ActivityBlock: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(activity.type.bgColor)
+        .background(block.type.bgColor)
         .clipShape(RoundedRectangle(cornerRadius: TL.blockCornerRadius))
     }
 
     @ViewBuilder
     private var iconCluster: some View {
         ZStack(alignment: .bottomTrailing) {
-            Image(systemName: activity.type.primaryIcon)
+            Image(systemName: block.type.primaryIcon)
                 .font(.system(size: TL.iconSize, weight: .regular))
-                .foregroundStyle(activity.type.accentColor)
+                .foregroundStyle(block.type.accentColor)
 
-            if let badge = activity.type.badgeIcon {
+            if let badge = block.type.badgeIcon {
                 Image(systemName: badge)
                     .font(.system(size: 11, weight: .bold))
                     .foregroundStyle(Color(.systemGray2))
                     .background(Color(.systemBackground).clipShape(Circle()))
                     .offset(x: 7, y: 7)
             }
-            if activity.type.showSunBadge {
+            if block.type.showSunBadge {
                 Image(systemName: "sun.max.fill")
                     .font(.system(size: 10))
-                    .foregroundStyle(Color("#E8A020"))
+                    .foregroundStyle(Color(hex: "#E8A020"))
                     .background(Color(.systemBackground).clipShape(Circle()))
                     .offset(x: 9, y: -9)
             }
-            if activity.type.showPillBadge {
+            if block.type.showPillBadge {
                 Image(systemName: "pills.fill")
                     .font(.system(size: 10))
-                    .foregroundStyle(Color("#9B59B6"))
+                    .foregroundStyle(Color(hex: "#9B59B6"))
                     .background(Color(.systemBackground).clipShape(Circle()))
                     .offset(x: 9, y: -9)
             }
@@ -505,7 +485,7 @@ private struct EndOfPlanFooter: View {
         VStack(spacing: 6) {
             Image(systemName: "sun.max.fill")
                 .font(.system(size: 22))
-                .foregroundStyle(Color("#E8A020"))
+                .foregroundStyle(Color(hex: "#E8A020"))
             Text("Yay you did it!! Enjoy your day!")
                 .font(.subheadline)
                 .fontWeight(.medium)
@@ -513,28 +493,15 @@ private struct EndOfPlanFooter: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 24)
-        .background(Color("#E8A020").opacity(0.08))
+        .background(Color(hex: "#E8A020").opacity(0.08))
     }
 }
 
-// MARK: - Activity Detail Sheet
-struct ActivityDetailSheet: View {
-    let activity: ActivityItem
+// MARK: - Block Detail Sheet (was ActivityDetailSheet)
+struct BlockDetailSheet: View {
+    let block: TimelineBlock
     let onReschedule: () -> Void
     @Environment(\.dismiss) private var dismiss
-
-    private var bt: BlockType {
-        switch activity.type {
-        case .flight:        return .flight
-        case .caffeine:      return .caffeine
-        case .avoidCaffeine: return .noCaffeine
-        case .seekLight:     return .seekLight
-        case .avoidLight:    return .avoidLight
-        case .sleep:         return .sleep
-        case .nap:           return .nap
-        case .melatonin:     return .melatonin
-        }
-    }
 
     var body: some View {
         NavigationStack {
@@ -544,64 +511,65 @@ struct ActivityDetailSheet: View {
                     HStack(spacing: 14) {
                         ZStack {
                             RoundedRectangle(cornerRadius: 14)
-                                .fill(activity.type.accentColor.opacity(0.13))
+                                .fill(block.type.accentColor.opacity(0.13))
                                 .frame(width: 56, height: 56)
-                            Image(systemName: activity.type.primaryIcon)
+                            Image(systemName: block.type.primaryIcon)
                                 .font(.system(size: 26, weight: .regular))
-                                .foregroundStyle(activity.type.accentColor)
+                                .foregroundStyle(block.type.accentColor)
                         }
                         VStack(alignment: .leading, spacing: 4) {
-                            Text(bt.rawValue)
+                            Text(block.type.rawValue)
                                 .font(.title3).fontWeight(.semibold)
-                            Text("\"\(bt.rawValue) at your scheduled time\"")
+                            Text("\"\(block.type.rawValue) at your scheduled time\"")
                                 .font(.subheadline).foregroundStyle(.secondary).italic()
                         }
                     }
                     .padding(16)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(activity.type.accentColor.opacity(0.07))
+                    .background(block.type.accentColor.opacity(0.07))
                     .clipShape(RoundedRectangle(cornerRadius: 16))
 
                     DetailInfoSection(title: "What I should do?",
                                       icon: "checkmark.circle.fill", color: .green,
-                                      content: bt.whatToDo)
+                                      content: block.type.whatToDo)
                     DetailInfoSection(title: "I can't do it, what should I do?",
-                                      icon: "arrow.triangle.2.circlepath", color: Color("#4A90E2"),
-                                      content: bt.alternatives)
+                                      icon: "arrow.triangle.2.circlepath", color: Color(hex: "#4A90E2"),
+                                      content: block.type.alternatives)
                     DetailInfoSection(title: "Why is this so important?",
-                                      icon: "info.circle.fill", color: activity.type.accentColor,
-                                      content: bt.whyItMatters)
+                                      icon: "info.circle.fill", color: block.type.accentColor,
+                                      content: block.type.whyItMatters)
 
-                    if activity.type != .flight {
+                    if block.type != .flight {
                         Button(action: onReschedule) {
                             Label("Reschedule", systemImage: "calendar.badge.clock")
                                 .font(.headline)
-                                .foregroundStyle(Color("#E8682A"))
+                                .foregroundStyle(Color(hex: "#E8682A"))
                                 .frame(maxWidth: .infinity).frame(height: 52)
-                                .background(Color("#E8682A").opacity(0.10))
+                                .background(Color(hex: "#E8682A").opacity(0.10))
                                 .clipShape(RoundedRectangle(cornerRadius: 14))
                         }
                     }
                 }
                 .padding(20)
             }
-            .navigationTitle(bt.rawValue)
+            .navigationTitle(block.type.rawValue)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Done") { dismiss() }
                         .fontWeight(.medium)
-                        .foregroundStyle(Color("#E8682A"))
+                        .foregroundStyle(Color(hex: "#E8682A"))
                 }
             }
         }
     }
 }
+
 private struct DetailInfoSection: View {
     let title: String
     let icon: String
     let color: Color
-    let content: String   // ✅ renamed
+    let content: String
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -610,7 +578,7 @@ private struct DetailInfoSection: View {
                 .fontWeight(.semibold)
                 .foregroundStyle(color)
 
-            Text(content)   // ✅ updated here
+            Text(content)
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
         }
@@ -623,20 +591,42 @@ private struct DetailInfoSection: View {
 
 // MARK: - Previews
 #Preview("Jakarta → Paris") {
+    let cal = Calendar.current
+    let now = cal.startOfDay(for: Date())
+    func makeDate(_ day: Int, _ hour: Int, _ min: Int = 0) -> Date {
+        cal.date(byAdding: .day, value: day, to: now)
+            .flatMap { cal.date(bySettingHour: hour, minute: min, second: 0, of: $0) }
+        ?? now
+    }
     let leg = FlightLeg(origin: "CGK", destination: "CDG",
-                        departure: Date(), arrival: Date().addingTimeInterval(3600*16))
-    var trip = Trip(flights: [leg], blocks: [])
+                        departure: makeDate(0, 17), arrival: makeDate(1, 6))
+    let blocks: [TimelineBlock] = [
+        TimelineBlock(type: .seekLight, startTime: makeDate(-1, 7), endTime: makeDate(-1, 9), title: "Seek Light"),
+        TimelineBlock(type: .caffeine, startTime: makeDate(-1, 8), endTime: makeDate(-1, 9), title: "Caffeine"),
+        TimelineBlock(type: .flight, startTime: makeDate(0, 17), endTime: makeDate(1, 6), title: "Flight CGK → CDG"),
+        TimelineBlock(type: .sleep, startTime: makeDate(0, 19), endTime: makeDate(0, 22, 30), title: "Go to Sleep"),
+        TimelineBlock(type: .avoidLight, startTime: makeDate(1, 12), endTime: makeDate(1, 15), title: "Avoid Light"),
+        TimelineBlock(type: .noCaffeine, startTime: makeDate(1, 15), endTime: makeDate(1, 20), title: "No Caffeine"),
+        TimelineBlock(type: .sleep, startTime: makeDate(1, 22), endTime: makeDate(2, 6), title: "Go to Sleep"),
+    ]
+    var trip = Trip(flights: [leg], blocks: blocks)
     trip.originCity = "Jakarta"; trip.destinationCity = "Paris"
     return NavigationStack { ScheduleView(trip: trip) }
 }
 
 #Preview("Block Types") {
-    ScrollView {
-        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
-            ForEach(ActivityType.allCases, id: \.rawValue) { t in
-                ActivityBlock(activity: ActivityItem(t, start: 0, duration: 2, tz: "", date: ""))
-                    .frame(height: 80)
-            }
-        }.padding(16)
+    let cal = Calendar.current
+    let now = cal.startOfDay(for: Date())
+    let blocks: [TimelineBlock] = BlockType.allCases.enumerated().map { i, type in
+        let start = cal.date(byAdding: .hour, value: i * 2, to: now) ?? now
+        let end = cal.date(byAdding: .hour, value: i * 2 + 2, to: now) ?? now
+        return TimelineBlock(type: type, startTime: start, endTime: end, title: type.rawValue)
     }
+    let trip = Trip(flights: [], blocks: blocks)
+    return NavigationStack { ScheduleView(trip: trip) }
+}
+
+#Preview("Empty Schedule") {
+    let trip = Trip(flights: [], blocks: [])
+    return NavigationStack { ScheduleView(trip: trip) }
 }

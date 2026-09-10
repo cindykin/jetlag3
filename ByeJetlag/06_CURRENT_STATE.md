@@ -45,6 +45,8 @@ ByeJetlag/
 - [x] `Trip` memakai `flights: [FlightLeg]` dan app state memakai `trips: [Trip]`.
 - [x] `UserProfile` memiliki toggle caffeine/melatonin/notification.
 - [x] Existing knowledge base untuk product/architecture/algorithm/design.
+- [x] `ScheduleView` render dari `trip.blocks` (`[TimelineBlock]`), bukan duplicate model.
+- [x] Duplicate domain model (`ActivityType`, `ActivityItem`, `TimelineSection`, `MockSchedule`) dihapus dari `ScheduleView.swift`.
 
 > Checklist di atas hanya berarti code/structure ditemukan, **bukan berarti behavior sudah benar**.
 
@@ -53,8 +55,8 @@ ByeJetlag/
 ## 3. Critical Broken / Not Yet Correct
 
 ### Schedule / Algorithm
-- [ ] `ScheduleView` masih render `MockSchedule.sections`, bukan `trip.blocks`.
-- [ ] `ScheduleView.swift` masih mendefinisikan `ActivityType`, `ActivityItem`, `TimelineSection` sebagai model paralel.
+- [x] `ScheduleView` sekarang render `trip.blocks`, bukan `MockSchedule.sections`. *(2026-09-10)*
+- [x] `ScheduleView.swift` tidak lagi mendefinisikan `ActivityType`, `ActivityItem`, `TimelineSection` — dihapus total. *(2026-09-10)*
 - [ ] `AppState.generateBlocks(for:)` masih hardcoded schedule template.
 - [ ] `CircadianEngine` belum ada.
 - [ ] CBTmin calculation belum terimplementasi sebagai engine.
@@ -84,8 +86,8 @@ ByeJetlag/
 
 ## 4. Known UI / UX Bugs
 
-- [ ] `ScheduleView` belum mengikuti data flow real.
-- [ ] Schedule timeline masih berbasis mock section model, bukan `TimelineBlock` duration/time.
+- [x] `ScheduleView` mengikuti data flow real (`trip.blocks`). *(2026-09-10)*
+- [x] Schedule timeline berbasis `TimelineBlock` duration/time, bukan mock section model. *(2026-09-10)*
 - [ ] Warna schedule masih tersebar di beberapa sistem.
 - [ ] `Image("onboard1")` dan `Image("onboard2")` dipanggil tetapi asset tersebut tidak ditemukan pada `Assets.xcassets` archive.
 - [ ] Onboarding yang dibuka sebagai Guide dari Home tidak memiliki dismissal behavior yang benar; aksi utama hanya mengubah `hasSeenOnboarding`.
