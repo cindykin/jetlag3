@@ -120,6 +120,41 @@ Move the remaining non-schedule color definitions into `AppTheme` without changi
 
 ---
 
+## 2026-09-10 — Replace Static Schedule Template with CircadianEngine
+
+### Task
+Fix root environment injection compilation, create a pure circadian engine, add basic unit tests, and replace `AppState.generateBlocks(for:)`'s static template.
+
+### Root Cause
+The root environment modifier was applied to a conditional result rather than a concrete container. Schedule generation was a fixed four-day template that ignored profile sleep, UTC offset direction, preparation days, and conditional rules.
+
+### Files Changed
+- `App/ByeJetLagApp.swift` — wrap the onboarding/home conditional in `Group` before environment injection.
+- `Services/CircadianEngine.swift` — add pure calculation and generation functions.
+- `Tests/CircadianEngineTests.swift` — add CBTmin, shift, and direction/12-hour-rule tests.
+- `Models/Models.swift` — replace the entire static generator with engine delegation using airport IANA timezones.
+- `06_CURRENT_STATE.md` — update implementation status and remaining test-target limitation.
+- `07_CHANGELOG.md` — record this patch.
+
+### Behavior Changed
+- Blocks are generated from profile sleep/wake times, actual airport timezone offsets on flight dates, direction-specific light windows, preparation-day shift, caffeine cutoff, and conditional caffeine/melatonin rules.
+- Sleep has exclusive priority; other generated blocks are split or removed where they overlap Sleep.
+- The root `AppState` environment is applied to a `Group`, resolving the SwiftUI modifier error.
+
+### Verification
+- Build: NOT VERIFIED — no `.xcodeproj` or workspace is present in the available source tree.
+- Tests: Added `CircadianEngineTests`, but could not run because no test target/project is available.
+- Static checks/manual checks: `swiftc -typecheck` passed for Models, Airport, Onboarding Color support, and CircadianEngine; only a pre-existing Airport deprecation warning was emitted. A full source type-check is blocked by the local toolchain's unavailable `PreviewsMacros` plugin.
+
+### Known Limitations
+- `FlightLeg` still does not persist explicit origin/destination timezone identifiers; `AppState` resolves them from the airport database during generation.
+- The test source is not registered in an Xcode target until a project file is supplied.
+
+### Next Recommended Step
+Add explicit persisted IANA timezone identifiers to `FlightLeg` and configure the engine tests in the real Xcode project.
+
+---
+
 # Entry Template
 
 Copy template ini untuk patch berikutnya:

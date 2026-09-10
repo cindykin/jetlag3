@@ -195,47 +195,22 @@ class AppState: ObservableObject {
     }
 
     func generateBlocks(for trip: Trip) -> [TimelineBlock] {
-        guard let firstFlight = trip.flights.first else { return [] }
-        var blocks: [TimelineBlock] = []
-        let cal = Calendar.current
-        let depDay = cal.startOfDay(for: firstFlight.departure)
-
-        func makeDate(_ day: Int, _ hour: Int, _ minute: Int = 0) -> Date {
-            cal.date(byAdding: .day, value: day, to: depDay)
-                .flatMap { cal.date(bySettingHour: hour, minute: minute, second: 0, of: $0) }
-            ?? depDay
+        guard
+            let firstFlight = trip.flights.first,
+            let lastFlight = trip.flights.last,
+            let originAirport = AirportStore.shared.airports.first(where: { $0.iata_code == firstFlight.origin }),
+            let destinationAirport = AirportStore.shared.airports.first(where: { $0.iata_code == lastFlight.destination }),
+            let originTimeZone = TimeZone(identifier: originAirport.timezone),
+            let destinationTimeZone = TimeZone(identifier: destinationAirport.timezone)
+        else {
+            return []
         }
 
-        // Day before flight
-        blocks.append(TimelineBlock(type: .seekLight, startTime: makeDate(-1, 7), endTime: makeDate(-1, 9), title: "Seek Light"))
-        blocks.append(TimelineBlock(type: .caffeine, startTime: makeDate(-1, 8), endTime: makeDate(-1, 9), title: "Caffeine"))
-        blocks.append(TimelineBlock(type: .noCaffeine, startTime: makeDate(-1, 14), endTime: makeDate(-1, 18), title: "No Caffeine"))
-        blocks.append(TimelineBlock(type: .sleep, startTime: makeDate(-1, 22), endTime: makeDate(0, 6), title: "Go to Sleep"))
-
-        // Flight day
-        blocks.append(TimelineBlock(type: .seekLight, startTime: makeDate(0, 7), endTime: makeDate(0, 9), title: "Seek Light"))
-        blocks.append(TimelineBlock(type: .caffeine, startTime: makeDate(0, 8), endTime: makeDate(0, 9), title: "Caffeine"))
-
-        // Flight block
-        for leg in trip.flights {
-            blocks.append(TimelineBlock(type: .flight, startTime: leg.departure, endTime: leg.arrival, title: "Flight \(leg.origin) → \(leg.destination)"))
-        }
-
-        // Arrival day
-        blocks.append(TimelineBlock(type: .avoidLight, startTime: makeDate(1, 12), endTime: makeDate(1, 15), title: "Avoid Light"))
-        blocks.append(TimelineBlock(type: .noCaffeine, startTime: makeDate(1, 15), endTime: makeDate(1, 20), title: "No Caffeine"))
-        if profile.useMelatonin {
-            blocks.append(TimelineBlock(type: .melatonin, startTime: makeDate(1, 21), endTime: makeDate(1, 21, 30), title: "Take Melatonin"))
-        }
-        blocks.append(TimelineBlock(type: .sleep, startTime: makeDate(1, 22), endTime: makeDate(2, 6), title: "Go to Sleep"))
-
-        // Day 2
-        blocks.append(TimelineBlock(type: .seekLight, startTime: makeDate(2, 7), endTime: makeDate(2, 9), title: "Seek Light"))
-        blocks.append(TimelineBlock(type: .caffeine, startTime: makeDate(2, 8), endTime: makeDate(2, 9), title: "Caffeine"))
-        blocks.append(TimelineBlock(type: .nap, startTime: makeDate(2, 14), endTime: makeDate(2, 14, 30), title: "Take a Nap"))
-        blocks.append(TimelineBlock(type: .noCaffeine, startTime: makeDate(2, 14), endTime: makeDate(2, 20), title: "No Caffeine"))
-        blocks.append(TimelineBlock(type: .sleep, startTime: makeDate(2, 22), endTime: makeDate(3, 6), title: "Go to Sleep"))
-
-        return blocks.sorted { $0.startTime < $1.startTime }
+        return CircadianEngine.generateBlocks(
+            for: trip.flights,
+            profile: profile,
+            originTimeZone: originTimeZone,
+            destinationTimeZone: destinationTimeZone
+        )
     }
 }

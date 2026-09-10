@@ -7,10 +7,12 @@ struct ByeJetLagApp: App {
 
     var body: some Scene {
         WindowGroup {
-            if hasSeenOnboarding {
-                HomeView()
-            } else {
-                OnboardingView()
+            Group {
+                if hasSeenOnboarding {
+                    HomeView()
+                } else {
+                    OnboardingView()
+                }
             }
             .environmentObject(appState)
         }

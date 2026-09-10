@@ -59,19 +59,19 @@ ByeJetlag/
 ### Schedule / Algorithm
 - [x] `ScheduleView` sekarang render `trip.blocks`, bukan `MockSchedule.sections`. *(2026-09-10)*
 - [x] `ScheduleView.swift` tidak lagi mendefinisikan `ActivityType`, `ActivityItem`, `TimelineSection` — dihapus total. *(2026-09-10)*
-- [ ] `AppState.generateBlocks(for:)` masih hardcoded schedule template.
-- [ ] `CircadianEngine` belum ada.
-- [ ] CBTmin calculation belum terimplementasi sebagai engine.
-- [ ] Eastward/westward direction + adaptation rule belum terimplementasi sesuai spec.
-- [ ] Loading shift (`Shift_daily`) belum terimplementasi sesuai spec.
-- [ ] Non-overlap schedule rules belum terimplementasi secara authoritative.
+- [x] `AppState.generateBlocks(for:)` mendelegasikan generation ke `CircadianEngine`; template statis telah dihapus. *(2026-09-10)*
+- [x] `CircadianEngine` pure functions tersedia untuk CBTmin, shift, direction, light window, cutoff caffeine, dan generation blocks. *(2026-09-10)*
+- [x] CBTmin calculation (`wake − 2.5 jam`) diimplementasikan sebagai engine. *(2026-09-10)*
+- [x] Eastward/westward direction dan adaptation rate diimplementasikan sesuai spec, termasuk Aturan 12 Jam. *(2026-09-10)*
+- [x] Loading shift (`Shift_daily`) dibatasi maksimum 1 jam/hari dan memakai maksimal 3 hari persiapan. *(2026-09-10)*
+- [x] Sleep exclusivity diterapkan pada hasil generation; semua block selain Sleep dipotong/dihapus pada interval Sleep. *(2026-09-10)*
 - [ ] Daily check-in model/flow belum ditemukan pada codebase.
 - [ ] Manual reschedule 1x belum bekerja; CURRENT `RescheduleSheet` dipanggil dengan closure kosong.
 
 ### Timezone
 - [ ] `FlightLeg` belum menyimpan timezone origin/destination eksplisit.
 - [ ] `AddFlightView` DatePicker masih tidak timezone-aware.
-- [ ] Offset/direction belum dihitung dari IANA timezone pada tanggal flight.
+- [x] Offset/direction dihitung dari IANA timezone bandara pada tanggal flight saat blocks digenerate. *(2026-09-10)*
 - [ ] Timeline timezone switch pada arrival belum terhubung ke data real.
 
 ### Persistence
@@ -109,6 +109,7 @@ ByeJetlag/
 - [ ] `AddFlightViewModel` target belum dibuat.
 - [ ] Component source of truth belum sepenuhnya dikonsolidasikan.
 - [ ] `Color(hex:)` masih belum berada di utility target tunggal.
+- [ ] `CircadianEngineTests` belum terdaftar ke Xcode test target karena `.xcodeproj`/workspace tidak tersedia di source tree.
 
 ---
 
