@@ -83,44 +83,34 @@ struct CircadianEngine {
                 referenceTimeZone: originTimeZone
             )
                 .addingTimeInterval(signedShift * 60 * 60)
-            let sleepEnd = sleepStart.addingTimeInterval(sleepDuration(profile: profile))
-            let wakeTime = sleepEnd
+            let duration = sleepDuration(profile: profile)
+            let sleepEnd = sleepStart.addingTimeInterval(duration)
+            let wakeTime = sleepStart.addingTimeInterval(-(24 * 60 * 60 - duration))
             let cbt = cbtMin(from: wakeTime)
             let light = lightWindows(cbtMin: cbt, direction: travelDirection)
+            let cutoff = caffeineCutoff(targetSleep: sleepStart)
+            let napStart = time(on: day, hour: 13, minute: 0, in: destinationTimeZone)
+            let sleepType: BlockType = profile.useMelatonin ? .melatonin : .sleep
+            let sleepTitle = profile.useMelatonin ? "Take Melatonin & Go to Sleep" : "Go to Sleep"
 
-            blocks += [
-                TimelineBlock(type: .sleep, startTime: sleepStart, endTime: sleepEnd, title: "Go to Sleep"),
+            var dailyBlocks = [
+                TimelineBlock(type: sleepType, startTime: sleepStart, endTime: sleepEnd, title: sleepTitle),
                 TimelineBlock(type: .seekLight, startTime: light.seekLight.start, endTime: light.seekLight.end, title: "Seek Light"),
                 TimelineBlock(type: .avoidLight, startTime: light.avoidLight.start, endTime: light.avoidLight.end, title: "Avoid Light"),
-                TimelineBlock(type: .noCaffeine, startTime: caffeineCutoff(targetSleep: sleepStart), endTime: sleepStart, title: "No Caffeine")
+                TimelineBlock(type: .nap, startTime: napStart, endTime: napStart.addingTimeInterval(30 * 60), title: "Take a Nap"),
+                TimelineBlock(type: .noCaffeine, startTime: cutoff, endTime: sleepStart, title: "No Caffeine")
             ]
 
-            if profile.useMelatonin {
-                blocks.append(
-                    TimelineBlock(
-                        type: .melatonin,
-                        startTime: sleepStart.addingTimeInterval(-30 * 60),
-                        endTime: sleepStart,
-                        title: "Take Melatonin"
-                    )
+            if profile.useCaffeine, wakeTime < cutoff {
+                dailyBlocks.append(
+                    TimelineBlock(type: .caffeine, startTime: wakeTime, endTime: cutoff, title: "Caffeine")
                 )
             }
+            blocks += dailyBlocks
         }
 
         blocks += flights.map {
             TimelineBlock(type: .flight, startTime: $0.departure, endTime: $0.arrival, title: "Flight \($0.origin) → \($0.destination)")
-        }
-
-        if profile.useCaffeine,
-           (6...16).contains(arrivalHour(lastFlight.arrival, in: destinationTimeZone)) {
-            blocks.append(
-                TimelineBlock(
-                    type: .caffeine,
-                    startTime: lastFlight.arrival.addingTimeInterval(-4 * 60 * 60),
-                    endTime: lastFlight.arrival,
-                    title: "Caffeine"
-                )
-            )
         }
 
         return enforcingSleepExclusivity(blocks)
@@ -128,11 +118,11 @@ struct CircadianEngine {
 
     static func enforcingSleepExclusivity(_ blocks: [TimelineBlock]) -> [TimelineBlock] {
         let sleepWindows = blocks
-            .filter { $0.type == .sleep }
+            .filter { isSleepEquivalent($0.type) }
             .map { DateInterval(start: $0.startTime, end: $0.endTime) }
 
         let resolved = blocks.flatMap { block -> [TimelineBlock] in
-            guard block.type != .sleep else { return [block] }
+            guard !isSleepEquivalent(block.type) else { return [block] }
             var remaining = [DateInterval(start: block.startTime, end: block.endTime)]
             for sleep in sleepWindows {
                 remaining = remaining.flatMap { subtract(sleep, from: $0) }
@@ -182,16 +172,20 @@ struct CircadianEngine {
         ) ?? day
     }
 
+    private static func time(on day: Date, hour: Int, minute: Int, in timeZone: TimeZone) -> Date {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = timeZone
+        return calendar.date(bySettingHour: hour, minute: minute, second: 0, of: day) ?? day
+    }
+
     private static func sleepDuration(profile: UserProfile) -> TimeInterval {
         var duration = profile.wakeTime.timeIntervalSince(profile.sleepTime)
         if duration <= 0 { duration += 24 * 60 * 60 }
         return duration
     }
 
-    private static func arrivalHour(_ date: Date, in timeZone: TimeZone) -> Int {
-        var calendar = Calendar(identifier: .gregorian)
-        calendar.timeZone = timeZone
-        return calendar.component(.hour, from: date)
+    private static func isSleepEquivalent(_ type: BlockType) -> Bool {
+        type == .sleep || type == .melatonin
     }
 
     private static func subtract(_ excluded: DateInterval, from interval: DateInterval) -> [DateInterval] {

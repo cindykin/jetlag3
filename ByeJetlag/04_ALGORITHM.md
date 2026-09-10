@@ -86,7 +86,13 @@ enum BlockType {
 - **Sleep** = core sleep, blok tidur panjang. Sleep **TIDAK selalu terjadi malam** — posisinya mengikuti hasil kalkulasi CBTmin/shift, bisa siang kalau memang itu hasil algoritmanya.
 - **Nap** = tidur pendek, **durasi ≤ 90 menit**. Beda entitas dari Sleep, jangan disatukan jadi satu tipe dengan durasi berbeda.
 - **Caffeine** & **Melatonin** = **conditional block** — HANYA muncul di jadwal kalau user meng-aktifkan toggle-nya di profil (`useCaffeine`, `useMelatonin`). Kalau toggle off, sistem tidak generate block ini sama sekali (bukan digenerate lalu disembunyikan).
-- **Melatonin** — TIDAK BOLEH digenerate kalau tidak ada window Sleep terkait di hari itu. Melatonin selalu terikat ke satu Sleep window tertentu (ditempatkan sebelum window itu).
+- **Melatonin TIDAK PERNAH jadi block terpisah yang render bersebelahan dengan Sleep.** Kalau `useMelatonin == true` untuk hari itu, block Sleep hari itu **digantikan** oleh satu block gabungan bertipe `.melatonin` dengan:
+  - Judul: **"Take Melatonin & Go to Sleep"**.
+  - Rentang waktu: **SAMA PERSIS dengan window Sleep penuh** (bukan cuma 30 menit sebelum tidur) — durasinya selama satu sesi tidur utuh.
+  - Ikon: kombinasi bed + pill (lihat `05_DESIGN_SYSTEM.md` Section 3).
+  - **Eksklusif seperti Sleep biasa** — berlaku Aturan Overlap Section 3.C poin 1 & 2 (tidak boleh ada block lain bersamaan, Avoid Light tidak boleh overlap dengan block ini).
+  - Kalau `useMelatonin == false`, generate block `.sleep` biasa seperti biasa (tanpa melatonin).
+  - **TIDAK PERNAH ada 2 block (Sleep + Melatonin terpisah) untuk sesi tidur yang sama.**
 - **Seek Light** — muncul setelah waktu bangun (`after wake`), sesuai window CBTmin di Section 6.
 - **Avoid Light** — muncul sebelum waktu tidur (`before sleep`), sesuai window CBTmin di Section 6.
 - **No Caffeine** — instruksi berlaku sebelum window Sleep (lihat Section 7, Caffeine Cut-off).
@@ -100,7 +106,6 @@ enum BlockType {
 
 ### D. Generasi Berdasarkan Pola & Shift
 - Sleep block digenerate dari **pola tidur user** (seed dari profil, atau dari reschedule kalau sudah pernah — lihat Section 1) **+ pergeseran gradual** (`Shift_daily` — lihat Section 4.B). Bukan jam tetap hardcode. Seluruh jadwal Trip digenerate **sekaligus di muka** (bukan bertahap harian), karena tidak ada data check-in baru yang masuk setiap hari.
-
 ---
 
 ## 4. Fase Loading (Sebelum Terbang)

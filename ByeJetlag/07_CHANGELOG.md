@@ -188,6 +188,39 @@ Open the real Xcode project, add `Tests/CircadianEngineTests.swift` to its unit-
 
 ---
 
+## 2026-09-10 — Generate Destination Naps and Daily Caffeine Windows
+
+### Task
+Add destination daytime naps, replace arrival-only caffeine with daily wake-to-cutoff windows, and cover the generation pipeline with eastward and westward XCTest cases.
+
+### Root Cause
+The engine did not generate naps and created caffeine only near daytime arrival, which did not implement the required daily caffeine window. Wake time was also derived from the end of the upcoming sleep window rather than the wake period preceding that target sleep.
+
+### Files Changed
+- `Services/CircadianEngine.swift` — generate 30-minute 13:00 destination naps, generate conditional daily caffeine windows, correct the wake anchor, and treat full-session melatonin as sleep-equivalent.
+- `Tests/CircadianEngineTests.swift` — add deterministic eastward and westward generation-pipeline cases with concrete inputs and expected local times in comments.
+- `06_CURRENT_STATE.md` — record implemented nap/caffeine behavior and pending test-target execution.
+- `07_CHANGELOG.md` — record this patch.
+
+### Behavior Changed
+- Each generated schedule includes a 13:00–13:30 destination-local nap, subject to Sleep exclusivity.
+- With caffeine enabled, each day receives a caffeine block from wake time through `targetSleep − 8 hours`; the former arrival-only caffeine block is removed.
+- A melatonin-enabled sleep session is represented by one full-duration `.melatonin` block and receives Sleep's overlap priority.
+
+### Verification
+- Build: NOT VERIFIED — no `.xcodeproj` or workspace is present in the available source tree.
+- Tests: XCTest sources parse successfully but cannot run until assigned to a test target.
+- Static checks/manual checks: updated Models/Engine type-check passed; `git diff --check` passed. The new pipeline tests document and assert concrete eastward/westward caffeine and nap windows.
+
+### Known Limitations
+- Nap time is a deterministic 13:00 destination-local window because Section 3 supplies the maximum duration but no individualized nap-time formula.
+- Reschedule behavior remains unchanged.
+
+### Next Recommended Step
+Assign `CircadianEngineTests.swift` to the real XCTest target and run both pipeline scenarios in Xcode.
+
+---
+
 # Entry Template
 
 Copy template ini untuk patch berikutnya:

@@ -66,6 +66,9 @@ ByeJetlag/
 - [x] Eastward/westward direction dan adaptation rate diimplementasikan sesuai spec, termasuk Aturan 12 Jam. *(2026-09-10)*
 - [x] Loading shift (`Shift_daily`) dibatasi maksimum 1 jam/hari dan memakai maksimal 3 hari persiapan. *(2026-09-10)*
 - [x] Sleep exclusivity diterapkan pada hasil generation; semua block selain Sleep dipotong/dihapus pada interval Sleep. *(2026-09-10)*
+- [x] Generator menambahkan nap 30 menit pada 13:00 waktu destinasi; durasinya berada di bawah batas 90 menit. *(2026-09-10)*
+- [x] Generator membuat caffeine window harian dari wake time sampai caffeine cutoff bila toggle caffeine aktif. *(2026-09-10)*
+- [x] Melatonin menggantikan block Sleep untuk sesi penuh dan diperlakukan eksklusif seperti Sleep. *(2026-09-10)*
 - [ ] Daily check-in model/flow belum ditemukan pada codebase.
 - [ ] Manual reschedule 1x belum bekerja; CURRENT `RescheduleSheet` dipanggil dengan closure kosong.
 
@@ -112,6 +115,7 @@ ByeJetlag/
 - [ ] `Color(hex:)` masih belum berada di utility target tunggal.
 - [ ] `CircadianEngineTests` belum terdaftar ke Xcode test target karena `.xcodeproj`/workspace tidak tersedia di source tree.
 - [ ] `CircadianEngineTests` ter-compile hanya bila XCTest tersedia; file perlu dimasukkan ke test target untuk dieksekusi.
+- [x] Test pipeline eastward dan westward mencakup nap destinasi serta caffeine window dengan input/output waktu konkret. *(2026-09-10; menunggu test target untuk execution)*
 
 ---
 
