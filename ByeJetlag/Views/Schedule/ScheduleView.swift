@@ -127,12 +127,17 @@ private func buildSections(from blocks: [TimelineBlock]) -> [DaySection] {
 
 // MARK: - ScheduleView
 struct ScheduleView: View {
-    let trip: Trip
+    @EnvironmentObject private var appState: AppState
+    @State private var trip: Trip
     @State private var selectedBlock: TimelineBlock?
     @State private var showDetail = false
     @State private var showReschedule = false
     @State private var rescheduleStart = Date()
     @State private var rescheduleEnd   = Date()
+
+    init(trip: Trip) {
+        _trip = State(initialValue: trip)
+    }
 
     private var sections: [DaySection] {
         buildSections(from: trip.blocks)
@@ -167,27 +172,19 @@ struct ScheduleView: View {
             "\(trip.destinationCity.isEmpty ? trip.destinationCode : trip.destinationCity)"
         )
         .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button { showReschedule = true } label: {
-                    Text("Align Sleep")
-                        .font(.subheadline)
-                        .foregroundStyle(.primary)
-                        .padding(.horizontal, 14).padding(.vertical, 7)
-                        .overlay(Capsule().stroke(Color(.separator), lineWidth: 1))
-                }
-            }
-        }
         .sheet(isPresented: $showDetail) {
             if let block = selectedBlock {
-                BlockDetailSheet(block: block) {
+                BlockDetailSheet(block: block, canReschedule: !trip.hasRescheduled) {
+                    prepareReschedule()
                     showDetail = false
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { showReschedule = true }
                 }
             }
         }
         .sheet(isPresented: $showReschedule) {
-            RescheduleSheet(sleepStart: $rescheduleStart, sleepEnd: $rescheduleEnd) { }
+            RescheduleSheet(sleepStart: $rescheduleStart, sleepEnd: $rescheduleEnd) {
+                applyReschedule()
+            }
         }
     }
 
@@ -205,6 +202,25 @@ struct ScheduleView: View {
                 .multilineTextAlignment(.center)
         }
         .padding(40)
+    }
+
+    private func prepareReschedule() {
+        if let sleepBlock = trip.blocks.first(where: { $0.type == .sleep || $0.type == .melatonin }) {
+            rescheduleStart = sleepBlock.startTime
+            rescheduleEnd = sleepBlock.endTime
+        }
+    }
+
+    private func applyReschedule() {
+        guard let updatedTrip = appState.rescheduleTrip(
+            id: trip.id,
+            actualSleepStart: rescheduleStart,
+            actualSleepEnd: rescheduleEnd
+        ) else {
+            return
+        }
+        trip = updatedTrip
+        selectedBlock = nil
     }
 }
 
@@ -426,6 +442,7 @@ private struct EndOfPlanFooter: View {
 // MARK: - Block Detail Sheet (was ActivityDetailSheet)
 struct BlockDetailSheet: View {
     let block: TimelineBlock
+    let canReschedule: Bool
     let onReschedule: () -> Void
     @Environment(\.dismiss) private var dismiss
 
@@ -469,7 +486,7 @@ struct BlockDetailSheet: View {
                                       icon: "info.circle.fill", color: block.type.color,
                                       content: block.type.whyItMatters)
 
-                    if block.type != .flight {
+                    if canReschedule && block.type != .flight {
                         Button(action: onReschedule) {
                             Label("Reschedule", systemImage: "calendar.badge.clock")
                                 .font(.headline)
@@ -542,6 +559,7 @@ private struct DetailInfoSection: View {
     var trip = Trip(flights: [leg], blocks: blocks)
     trip.originCity = "Jakarta"; trip.destinationCity = "Paris"
     return NavigationStack { ScheduleView(trip: trip) }
+        .environmentObject(AppState())
 }
 
 #Preview("Block Types") {
@@ -554,9 +572,11 @@ private struct DetailInfoSection: View {
     }
     let trip = Trip(flights: [], blocks: blocks)
     return NavigationStack { ScheduleView(trip: trip) }
+        .environmentObject(AppState())
 }
 
 #Preview("Empty Schedule") {
     let trip = Trip(flights: [], blocks: [])
     return NavigationStack { ScheduleView(trip: trip) }
+        .environmentObject(AppState())
 }

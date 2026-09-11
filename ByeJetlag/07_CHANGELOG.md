@@ -254,6 +254,41 @@ Add a migration strategy when persistence is introduced, then implement the arri
 
 ---
 
+## 2026-09-11 — Implement One-Time Manual Reschedule
+
+### Task
+Implement the manual, per-Trip reschedule flow with a single allowed use, actual sleep start/stop input, and regenerated blocks.
+
+### Root Cause
+The schedule exposed reschedule outside the required block-detail flow, its confirmation closure did nothing, and no state prevented repeated use.
+
+### Files Changed
+- `Models/Models.swift` — add `Trip.hasRescheduled` and the guarded `AppState.rescheduleTrip` mutation.
+- `Views/Schedule/ScheduleView.swift` — trigger reschedule only from block detail, refresh the updated Trip, and hide the action after use.
+- `Views/Components/Components.swift` — correct the modal's one-time copy and sleep-stop input label.
+- `Tests/CircadianEngineTests.swift` — cover CBTmin, regenerated blocks, and second-use rejection.
+- `06_CURRENT_STATE.md` — record the implemented one-time flow.
+- `07_CHANGELOG.md` — record this patch.
+
+### Behavior Changed
+- A Trip starts with `hasRescheduled == false` and can be rescheduled only once from a block-detail screen.
+- Confirmation derives CBTmin with `CircadianEngine.cbtMin(actualSleepEnd)`, uses the actual sleep inputs as the new profile baseline, regenerates the Trip's blocks, and then marks the Trip as rescheduled.
+- Once marked, the Reschedule button is absent from every block-detail sheet for that Trip; it is not merely disabled.
+
+### Verification
+- Build: NOT VERIFIED — no `.xcodeproj` or workspace is present in the available source tree.
+- Tests: Added the reschedule XCTest, but no XCTest target is available to execute it.
+- Static checks/manual checks: Models/Engine type-check and Schedule/Components/test-source parse checks passed; `git diff --check` passed. The reschedule mutation guards the Trip ID and `hasRescheduled` before making any state change.
+
+### Known Limitations
+- The app remains memory-only, so the one-time flag will not survive force quit until persistence is implemented.
+- Timezone divider behavior was not changed.
+
+### Next Recommended Step
+Register the XCTest source in the real test target, then add persistence for the Trip reschedule flag and regenerated blocks.
+
+---
+
 # Entry Template
 
 Copy template ini untuk patch berikutnya:

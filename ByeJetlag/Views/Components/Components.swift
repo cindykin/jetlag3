@@ -303,7 +303,7 @@ struct RescheduleSheet: View {
                         Text("Uh oh, you fell asleep?")
                             .font(.subheadline)
                             .fontWeight(.semibold)
-                        Text("We can reschedule your sleep schedule and all tasks, but just 2 times each trip flow.")
+                        Text("We can reschedule your sleep schedule and all tasks once for this trip.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -318,9 +318,7 @@ struct RescheduleSheet: View {
                         DatePicker("Sleep start", selection: $sleepStart, displayedComponents: .hourAndMinute)
                             .datePickerStyle(.wheel)
                             .labelsHidden()
-                    }
-                    Section("Wake up time") {
-                        DatePicker("Sleep end", selection: $sleepEnd, displayedComponents: .hourAndMinute)
+                        DatePicker("Sleep stop", selection: $sleepEnd, displayedComponents: .hourAndMinute)
                             .datePickerStyle(.wheel)
                             .labelsHidden()
                     }

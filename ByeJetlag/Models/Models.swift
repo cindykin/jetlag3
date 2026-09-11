@@ -168,6 +168,7 @@ struct Trip: Identifiable, Codable, Hashable {
     var flights: [FlightLeg]
     var blocks: [TimelineBlock]
     var createdAt: Date = Date()
+    var hasRescheduled: Bool = false
 
     var originCode: String { flights.first?.origin ?? "—" }
     var destinationCode: String { flights.last?.destination ?? "—" }
@@ -197,6 +198,31 @@ class AppState: ObservableObject {
     }
 
     func generateBlocks(for trip: Trip) -> [TimelineBlock] {
+        generateBlocks(for: trip, profile: profile)
+    }
+
+    func rescheduleTrip(
+        id: UUID,
+        actualSleepStart: Date,
+        actualSleepEnd: Date
+    ) -> Trip? {
+        guard let index = trips.firstIndex(where: { $0.id == id }), !trips[index].hasRescheduled else {
+            return nil
+        }
+
+        let recalculatedCBTMin = CircadianEngine.cbtMin(from: actualSleepEnd)
+        var rescheduledProfile = profile
+        rescheduledProfile.sleepTime = actualSleepStart
+        rescheduledProfile.wakeTime = recalculatedCBTMin.addingTimeInterval(2.5 * 60 * 60)
+
+        var rescheduledTrip = trips[index]
+        rescheduledTrip.blocks = generateBlocks(for: rescheduledTrip, profile: rescheduledProfile)
+        rescheduledTrip.hasRescheduled = true
+        trips[index] = rescheduledTrip
+        return rescheduledTrip
+    }
+
+    private func generateBlocks(for trip: Trip, profile: UserProfile) -> [TimelineBlock] {
         guard
             let firstFlight = trip.flights.first,
             let lastFlight = trip.flights.last,

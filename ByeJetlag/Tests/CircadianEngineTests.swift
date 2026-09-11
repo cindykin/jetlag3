@@ -76,6 +76,37 @@ final class CircadianEngineTests: XCTestCase {
         XCTAssertTrue(blocks.filter { $0.type == .nap }.allSatisfy { $0.endTime.timeIntervalSince($0.startTime) <= 90 * 60 })
     }
 
+    func testRescheduleTripRegeneratesBlocksOnlyOnce() {
+        let origin = TimeZone(secondsFromGMT: 0)!
+        let destination = TimeZone(identifier: "Asia/Tokyo")!
+        let departure = date(2026, 1, 10, 10, 0, in: origin)
+        let leg = FlightLeg(
+            origin: "LON",
+            destination: "TYO",
+            originTimeZoneID: "GMT",
+            destinationTimeZoneID: "Asia/Tokyo",
+            departure: departure,
+            arrival: departure.addingTimeInterval(12 * 60 * 60)
+        )
+        var trip = Trip(flights: [leg], blocks: [])
+        let state = AppState()
+        state.profile.sleepTime = date(2026, 1, 1, 22, 0, in: origin)
+        state.profile.wakeTime = date(2026, 1, 2, 6, 0, in: origin)
+        trip.blocks = state.generateBlocks(for: trip)
+        state.trips = [trip]
+
+        let updated = state.rescheduleTrip(
+            id: trip.id,
+            actualSleepStart: date(2026, 1, 11, 23, 0, in: destination),
+            actualSleepEnd: date(2026, 1, 12, 7, 0, in: destination)
+        )
+
+        XCTAssertEqual(CircadianEngine.cbtMin(from: date(2026, 1, 12, 7, 0, in: destination)), date(2026, 1, 12, 4, 30, in: destination))
+        XCTAssertEqual(updated?.hasRescheduled, true)
+        XCTAssertFalse(updated?.blocks.isEmpty ?? true)
+        XCTAssertNil(state.rescheduleTrip(id: trip.id, actualSleepStart: Date(), actualSleepEnd: Date()))
+    }
+
     private func date(_ year: Int, _ month: Int, _ day: Int, _ hour: Int, _ minute: Int, in timeZone: TimeZone) -> Date {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = timeZone

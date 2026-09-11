@@ -70,7 +70,7 @@ ByeJetlag/
 - [x] Generator membuat caffeine window harian dari wake time sampai caffeine cutoff bila toggle caffeine aktif. *(2026-09-10)*
 - [x] Melatonin menggantikan block Sleep untuk sesi penuh dan diperlakukan eksklusif seperti Sleep. *(2026-09-10)*
 - [ ] Daily check-in model/flow belum ditemukan pada codebase.
-- [ ] Manual reschedule 1x belum bekerja; CURRENT `RescheduleSheet` dipanggil dengan closure kosong.
+- [x] Manual reschedule maksimal 1x per Trip bekerja dari detail block; konfirmasi meregenerasi blocks dan menyembunyikan tombol untuk Trip tersebut. *(2026-09-11)*
 
 ### Timezone
 - [x] `FlightLeg` menyimpan `originTimeZoneID` dan `destinationTimeZoneID` IANA dari airport yang dipilih. *(2026-09-11)*
@@ -116,6 +116,7 @@ ByeJetlag/
 - [ ] `CircadianEngineTests` belum terdaftar ke Xcode test target karena `.xcodeproj`/workspace tidak tersedia di source tree.
 - [ ] `CircadianEngineTests` ter-compile hanya bila XCTest tersedia; file perlu dimasukkan ke test target untuk dieksekusi.
 - [x] Test pipeline eastward dan westward mencakup nap destinasi serta caffeine window dengan input/output waktu konkret. *(2026-09-10; menunggu test target untuk execution)*
+- [x] Test reschedule mencakup regenerate blocks, CBTmin dari wake aktual, dan penolakan reschedule kedua. *(2026-09-11; menunggu test target untuk execution)*
 
 ---
 
