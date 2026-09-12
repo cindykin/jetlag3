@@ -215,7 +215,7 @@ private struct SectionHeader: View {
 
             Spacer()
 
-            Text(section.localTimeLabel)
+            Text("\(section.localTimeLabel) · \(section.timeZoneLabel)")
                 .font(.footnote)
                 .foregroundStyle(Color(.secondaryLabel))
         }

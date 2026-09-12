@@ -1,17 +1,5 @@
 import Foundation
 
-// TEMPORARY DEBUG — remove after the "only Sleep visible" / boundary investigation is
-// closed. Formats any Date as UTC ISO8601, regardless of which local timezone it's
-// "supposed" to represent, so debug prints below are unambiguous and comparable.
-private let debugUTCFormatter: ISO8601DateFormatter = {
-    let f = ISO8601DateFormatter()
-    f.timeZone = TimeZone(identifier: "UTC")
-    f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-    return f
-}()
-
-private func debugUTC(_ date: Date) -> String { debugUTCFormatter.string(from: date) }
-
 // MARK: - Timeline Segment Model
 //
 // View-local layout data (not a domain model) produced by `buildSections`, consumed by
@@ -45,10 +33,27 @@ struct DaySection: Identifiable {
     let id: String
     let dateLabel: String
     let localTimeLabel: String
+    /// Short, human-readable label for the timezone this segment's `localTimeLabel` is
+    /// expressed in (e.g. "Jakarta", "Paris"). Two midnight boundaries close together in
+    /// absolute time — one just before a flight arrival (origin tz), one just after
+    /// (destination tz) — can otherwise render an IDENTICAL-looking "00:00" header despite
+    /// being hours apart in reality. See 07_CHANGELOG.md 2026-09-12 for the investigation
+    /// that found this (expected behavior, not a bug — just needed disambiguation).
+    let timeZoneLabel: String
     let startHour: Double
     let endHour: Double
     let blocks: [PositionedBlock]
     let divider: TimezoneDividerInfo?
+}
+
+/// Derives a short, human-readable place name from an IANA timezone identifier for display
+/// next to a section's local time (e.g. "Asia/Jakarta" -> "Jakarta", "America/New_York" ->
+/// "New York"). This is a display convenience only — NOT the same as an airport's city name
+/// (`FlightLeg.destination` / `TimezoneDividerInfo.cityName`), since a `DaySection` isn't
+/// always tied to one specific flight leg (e.g. the very first segment, before departure).
+func shortTimeZoneLabel(for timeZone: TimeZone) -> String {
+    let lastComponent = timeZone.identifier.split(separator: "/").last.map(String.init) ?? timeZone.identifier
+    return lastComponent.replacingOccurrences(of: "_", with: " ")
 }
 
 // MARK: - Timeline Boundaries
@@ -139,21 +144,6 @@ func computeBoundaries(tripStart: Date, tripEnd: Date, flights: [FlightLeg]) -> 
     }
 
     let sortedBoundaries = boundaries.sorted { $0.instant < $1.instant }
-
-    // TEMPORARY DEBUG — remove after investigation.
-    print("🐛 [computeBoundaries] flights (\(flights.count)):")
-    for flight in flights {
-        print("""
-        🐛   \(flight.origin) → \(flight.destination) \
-        | originTZ=\(flight.originTimeZoneID) destTZ=\(flight.destinationTimeZoneID) \
-        | departure(UTC)=\(debugUTC(flight.departure)) arrival(UTC)=\(debugUTC(flight.arrival))
-        """)
-    }
-    print("🐛 [computeBoundaries] boundaries (\(sortedBoundaries.count)), sorted:")
-    for boundary in sortedBoundaries {
-        print("🐛   instant(UTC)=\(debugUTC(boundary.instant)) kind=\(boundary.kind) timeZone=\(boundary.timeZone.identifier)")
-    }
-
     return sortedBoundaries
 }
 
@@ -166,14 +156,6 @@ func buildSections(from blocks: [TimelineBlock], flights: [FlightLeg]) -> [DaySe
           let tripStart = blocks.map(\.startTime).min(),
           let tripEnd = blocks.map(\.endTime).max()
     else { return [] }
-
-    // TEMPORARY DEBUG — remove after investigation.
-    print("🐛 [buildSections] tripStart(UTC)=\(debugUTC(tripStart)) tripEnd(UTC)=\(debugUTC(tripEnd)) totalBlocks=\(blocks.count)")
-    print("🐛 [buildSections] first 5 blocks (of \(blocks.count)), sorted by startTime:")
-    let sortedForDebug = blocks.sorted { $0.startTime < $1.startTime }
-    for block in sortedForDebug.prefix(5) {
-        print("🐛   type=\(block.type) startTime(UTC)=\(debugUTC(block.startTime)) endTime(UTC)=\(debugUTC(block.endTime))")
-    }
 
     let boundaries = computeBoundaries(tripStart: tripStart, tripEnd: tripEnd, flights: flights)
     guard !boundaries.isEmpty else { return [] }
@@ -216,6 +198,7 @@ func buildSections(from blocks: [TimelineBlock], flights: [FlightLeg]) -> [DaySe
             id: "\(index)-\(Int(boundary.instant.timeIntervalSince1970))",
             dateLabel: dateFormatter.string(from: segmentStart),
             localTimeLabel: timeFormatter.string(from: segmentStart),
+            timeZoneLabel: shortTimeZoneLabel(for: boundary.timeZone),
             startHour: sectionStartHour,
             endHour: max(sectionEndHour, sectionStartHour + 1), // at least 1 hour range
             blocks: positioned,

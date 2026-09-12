@@ -384,6 +384,38 @@ Desain lama menurunkan segmen timeline dari data block (`block.startTime`), pada
 
 ---
 
+## 2026-09-12 — Investigasi Ditutup: "00:00 Ganda" adalah Expected Behavior, Bukan Bug — Ditambahkan Disambiguation
+
+### Task
+Lanjutan investigasi debug print sesi sebelumnya: hapus semua `print()` temporary, laporkan temuan.
+
+### Temuan
+`buildSections()`/`computeBoundaries()` **sudah benar secara kronologis** — tidak ada bug hitungan. Yang sempat kelihatan aneh dari log: saat pesawat melintasi tengah malam **di timezone asal** (sebelum arrival), lalu tak lama kemudian mendarat dan melintasi tengah malam lagi **di timezone tujuan** (setelah arrival), dua `SectionHeader` berurutan bisa menampilkan teks jam yang identik persis, mis. sama-sama "Sun, 13 Sep 00:00" — padahal dua instant absolut itu beda beberapa jam. Ini BUKAN bug: masing-masing `DaySection` memang benar-benar diformat memakai `boundary.timeZone` yang berbeda (satu di timezone asal, satu di timezone tujuan) — datanya benar, cuma teksnya kebetulan sama-sama menunjukkan "00:00" sehingga membingungkan saat dibaca berurutan tanpa konteks timezone.
+
+**Kenapa ditulis "resolved as expected behavior", bukan "bug fixed":** tidak ada logika yang salah untuk diperbaiki di `computeBoundaries`/`buildSections` — root cause-nya murni UX/tampilan (section header tidak pernah menyebutkan timezone rujukannya), bukan kesalahan perhitungan boundary/split dari task-task sebelumnya.
+
+### Files Changed
+- `Services/ScheduleTimelineBuilder.swift` — hapus semua debug print (`debugUTCFormatter`, `debugUTC`, dan pemanggilannya) dari sesi investigasi sebelumnya. Tambah field `timeZoneLabel: String` ke `DaySection`, dan helper `shortTimeZoneLabel(for timeZone:) -> String` (ambil komponen terakhir dari IANA identifier, mis. "Asia/Jakarta" → "Jakarta").
+- `Views/Schedule/ScheduleView.swift` — `SectionHeader` sekarang menampilkan `"\(section.localTimeLabel) · \(section.timeZoneLabel)"` (mis. "00:00 · Jakarta") alih-alih cuma jam tanpa konteks timezone. Ini berlaku untuk SEMUA section header, bukan cuma yang punya `TimezoneDividerView` (yang tetap khusus untuk kasus arrival-timezone-baru).
+- `06_CURRENT_STATE.md` — catat temuan ini dengan label "resolved as expected behavior, disambiguation ditambahkan", terpisah dari entry bug-fix lain, supaya riwayat akurat (tidak ada bug hitungan yang diperbaiki di sini).
+
+### Behavior Changed
+- Section header (bukan cuma divider arrival) sekarang selalu menyebutkan timezone rujukan singkat di sebelah jam. Tidak ada perubahan pada logika `computeBoundaries`/`buildSections`/split sama sekali — murni penambahan field display.
+
+### Verification
+- Build: NOT VERIFIED (tidak ada toolchain Xcode/Swift di environment ini).
+- Tests: `ScheduleTimelineBuilderTests.swift` tidak perlu diubah — assertion yang ada tidak menyentuh `timeZoneLabel`, tapi kalau mau nambah assertion baru untuk field ini, bisa cek `sections[i].timeZoneLabel == "Jakarta"` dkk pada skenario yang sudah ada.
+- Static/manual checks: dicek tidak ada tempat lain yang construct `DaySection(...)` secara langsung selain di `buildSections`, jadi penambahan field baru tidak memecah call-site manapun.
+
+### Known Limitations
+- `shortTimeZoneLabel` naif (ambil komponen terakhir path IANA identifier) — untuk identifier tanpa "/" (mis. "UTC") hasilnya "UTC" apa adanya, cukup wajar. Untuk kasus jarang seperti offset-style identifier ("Etc/GMT+7") hasilnya kurang enak dibaca ("GMT+7") — belum jadi masalah nyata karena app pakai IANA city-based identifier dari data airport, bukan offset-style.
+- Belum divalidasi visual di simulator — cek spacing "·" dan potensi text-truncation kalau nama kota panjang (mis. "Indiana/Indianapolis" → "Indianapolis").
+
+### Next Recommended Step
+Build & lihat langsung di simulator untuk trip yang tadinya membingungkan (dua midnight berdekatan), pastikan sekarang jelas bedanya. Lanjut ke task `CircadianEngine.generateBlocks` (`completedShiftDays` tidak progresif) yang masih tercatat sebagai next priority dari entry sebelumnya.
+
+---
+
 # Entry Template
 
 Copy template ini untuk patch berikutnya:
@@ -414,4 +446,4 @@ Copy template ini untuk patch berikutnya:
 ### Next Recommended Step
 <langkah kecil berikutnya>
 ```
-
+'
