@@ -28,102 +28,11 @@ private extension BlockType {
     }
 }
 
-// MARK: - Day Section (internal grouping, not a domain model)
-
-/// Groups `TimelineBlock`s into per-day rendering sections.
-/// This is a **view-local layout helper**, NOT a domain model — it exists only to
-/// organize blocks for the positioned timeline grid and is derived from `[TimelineBlock]`.
-private struct DaySection: Identifiable {
-    let id: String
-    let dateLabel: String
-    let localTimeLabel: String
-    let startHour: Double
-    let endHour: Double
-    let blocks: [PositionedBlock]
-}
-
-/// A `TimelineBlock` annotated with hour-based offsets for timeline positioning.
-private struct PositionedBlock: Identifiable {
-    let id: UUID
-    let block: TimelineBlock
-    let startHour: Double
-    let durationHours: Double
-
-    var endHour: Double { startHour + durationHours }
-}
-
 // MARK: - Section Builder
-
-/// Converts `[TimelineBlock]` into `[DaySection]` for timeline rendering.
-/// Each section covers a contiguous range of hours within one calendar day.
-private func buildSections(from blocks: [TimelineBlock]) -> [DaySection] {
-    guard !blocks.isEmpty else { return [] }
-
-    let sorted = blocks.sorted { $0.startTime < $1.startTime }
-    let calendar = Calendar.current
-
-    // Group blocks by calendar day of their startTime
-    var dayGroups: [(date: Date, blocks: [TimelineBlock])] = []
-    for block in sorted {
-        let dayStart = calendar.startOfDay(for: block.startTime)
-        if let lastIdx = dayGroups.indices.last, dayGroups[lastIdx].date == dayStart {
-            dayGroups[lastIdx].blocks.append(block)
-        } else {
-            dayGroups.append((date: dayStart, blocks: [block]))
-        }
-    }
-
-    let dateFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.dateFormat = "EEE, dd MMM"
-        return f
-    }()
-
-    let timeFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.dateFormat = "HH:mm"
-        return f
-    }()
-
-    var sections: [DaySection] = []
-
-    for (index, group) in dayGroups.enumerated() {
-        let dayStart = group.date
-
-        // Convert blocks to positioned blocks with hour offsets
-        let positioned: [PositionedBlock] = group.blocks.map { block in
-            let startInterval = block.startTime.timeIntervalSince(dayStart)
-            let startH = startInterval / 3600.0
-            let durationH = block.endTime.timeIntervalSince(block.startTime) / 3600.0
-            return PositionedBlock(
-                id: block.id,
-                block: block,
-                startHour: startH,
-                durationHours: max(durationH, 0)
-            )
-        }
-
-        guard let minHour = positioned.map(\.startHour).min(),
-              let maxHour = positioned.map(\.endHour).max() else { continue }
-
-        let sectionStartHour = floor(minHour)
-        let sectionEndHour = ceil(maxHour)
-
-        let dateLabel = dateFormatter.string(from: dayStart)
-        let timeLabel = timeFormatter.string(from: group.blocks.first?.startTime ?? dayStart)
-
-        sections.append(DaySection(
-            id: "\(index)-\(dateLabel)",
-            dateLabel: dateLabel,
-            localTimeLabel: timeLabel,
-            startHour: sectionStartHour,
-            endHour: max(sectionEndHour, sectionStartHour + 1), // at least 1 hour range
-            blocks: positioned
-        ))
-    }
-
-    return sections
-}
+//
+// `DaySection`, `PositionedBlock`, `TimezoneDividerInfo`, and `buildSections(from:flights:)`
+// now live in `Services/ScheduleTimelineBuilder.swift` (extracted out of this View file so
+// the boundary/split logic is unit-testable — see `ScheduleTimelineBuilderTests.swift`).
 
 // MARK: - ScheduleView
 struct ScheduleView: View {
@@ -140,7 +49,7 @@ struct ScheduleView: View {
     }
 
     private var sections: [DaySection] {
-        buildSections(from: trip.blocks)
+        buildSections(from: trip.blocks, flights: trip.flights)
     }
 
     var body: some View {
@@ -152,7 +61,11 @@ struct ScheduleView: View {
                     if sections.isEmpty {
                         emptyState
                     } else {
-                        ForEach(sections) { section in
+                        ForEach(Array(sections.enumerated()), id: \.element.id) { index, section in
+                            if index > 0, let divider = section.divider {
+                                TimezoneDividerView(info: divider)
+                            }
+
                             SectionView(section: section) { block in
                                 selectedBlock = block
                                 showDetail = true
@@ -221,6 +134,58 @@ struct ScheduleView: View {
         }
         trip = updatedTrip
         selectedBlock = nil
+    }
+}
+
+
+private struct TimezoneDividerView: View {
+    let info: TimezoneDividerInfo
+
+    private var dateText: String {
+        let f = DateFormatter()
+        f.dateFormat = "EEE, dd MMM"
+        f.timeZone = info.timeZone
+        return f.string(from: info.date)
+    }
+
+    private var timeText: String {
+        let f = DateFormatter()
+        f.dateFormat = "HH:mm"
+        f.timeZone = info.timeZone
+        return f.string(from: info.date)
+    }
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Text(dateText)
+                .font(.footnote)
+                .fontWeight(.medium)
+
+            Spacer()
+
+            if let city = info.cityName {
+                HStack(spacing: 4) {
+                    Image(systemName: "clock")
+                    Text("\(city) Time")
+                }
+                .font(.caption)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background(Color(.secondarySystemBackground))
+                .clipShape(Capsule())
+            }
+
+            Text(timeText)
+                .font(.footnote)
+                .foregroundStyle(Color(.secondaryLabel))
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(Color(.separator).opacity(0.5))
+                .frame(height: 0.5)
+        }
     }
 }
 

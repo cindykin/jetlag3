@@ -289,6 +289,101 @@ Register the XCTest source in the real test target, then add persistence for the
 
 ---
 
+## 2026-09-11 — Timezone Divider pada Schedule Timeline
+
+### Task
+Menambahkan timezone divider di `ScheduleView` sesuai `04_ALGORITHM.md` Section 9 dan `05_DESIGN_SYSTEM.md` Section 5.
+
+### Root cause
+Timeline sebelumnya hanya merender section harian tanpa penanda eksplisit ketika pengguna melewati timezone baru atau batas tengah malam lokal.
+
+### Files changed:
+  - `Views/Schedule/ScheduleView.swift`
+  - `06_CURRENT_STATE.md`
+
+### Behavior changed:
+  - Menampilkan divider dengan badge `{Nama Kota} Time` + ikon jam hanya pada titik flight arrival yang berpindah timezone.
+  - Menampilkan divider tanggal/jam saja pada tengah malam lokal tanpa perpindahan timezone.
+  - Tidak menambahkan divider pada kondisi lain.
+  - Top navigation bar tetap tidak berubah.
+### Verification:** Source review dilakukan terhadap implementasi divider dan referensi requirement Section 9/Section 5. Build belum dijalankan pada environment ini.
+- **Known limitations:** Validasi visual final masih perlu dilakukan melalui simulator/device.
+- **Next recommended step:** Jalankan preview/simulator untuk memastikan spacing dan alignment divider sesuai design system.
+
+---
+
+## 2026-09-11 — Fix: Timeline Day-Grouping Memakai Device Timezone, Bukan Airport Timezone
+
+### Task
+Audit implementasi timezone divider (`04_ALGORITHM.md` Section 9, `05_DESIGN_SYSTEM.md` Section 5) yang sudah ada dari entry sebelumnya di changelog ini, sebelum dianggap selesai.
+
+### Root Cause
+`buildSections()` mengelompokkan `TimelineBlock` per hari menggunakan `Calendar.current` (timezone device), dan `makeDividerInfo()` memakai `.current` untuk cek midnight-tanpa-perpindahan-timezone. Ini bertentangan dengan single-source-of-truth timezone yang sudah dibangun di `FlightLeg.originTimeZoneID`/`destinationTimeZoneID` (patch 2026-09-11 sebelumnya): kalau timezone device pengguna tidak sama dengan timezone airport origin/destination yang sedang berlaku, batas hari, posisi grid per-jam, dan label tanggal/jam section header semuanya ikut bergeser secara salah — bukan cuma teks divider.
+
+### Files Changed
+- `Views/Schedule/ScheduleView.swift` — tambah helper `activeTimeZone(at:flights:)` (origin tz sebelum departure pertama, destination tz sejak arrival leg terkait), pakai helper ini di `buildSections()` untuk day-grouping + format `DateFormatter`, dan teruskan ke `makeDividerInfo()` untuk cek midnight.
+- `06_CURRENT_STATE.md` — update baris Timezone section.
+
+### Behavior Changed
+- Pengelompokan hari, posisi vertikal block pada grid jam, label tanggal/jam section header, dan cek midnight untuk divider sekarang semuanya konsisten memakai timezone airport yang aktif di titik waktu tersebut — bukan timezone device.
+- Badge `{Kota} Time` pada flight-arrival divider tidak berubah logikanya (masih bandingkan identifier origin vs destination tz).
+
+### Verification
+- Build: NOT VERIFIED (tidak ada toolchain Xcode/Swift di environment ini — perlu di-build manual di Xcode).
+- Tests: Tidak ada test baru ditambahkan untuk perubahan ini; `CircadianEngineTests` tidak tersentuh.
+- Static/manual checks: Source review — semua call-site `buildSections`/`makeDividerInfo` sudah konsisten dengan signature baru; preview `#Preview("Jakarta → Paris")` tetap kompatibel (FlightLeg tanpa timezone ID eksplisit fallback ke `.current` secara graceful, tidak crash).
+
+### Known Limitations
+- Belum divalidasi di simulator/device — terutama kasus device di timezone berbeda dari kedua airport, dan kasus multi-leg (>2 flight) untuk urutan `activeTimeZone`.
+- Belum ada unit test untuk `activeTimeZone`/`buildSections`/`makeDividerInfo` karena ketiganya `private` di file View — pertimbangkan extract ke Services/ kalau mau di-cover XCTest.
+
+### Next Recommended Step
+Build & jalankan di simulator dengan device timezone yang sengaja beda dari kedua airport trip (misal device WIB, trip Jakarta→Paris), verifikasi grid/label tetap benar. Kalau lolos, lanjut ke Persistence (trips/profile masih memory-only).
+
+---
+
+## 2026-09-11 — Rewrite: Boundary-Based Timeline Segmentation + Block Splitting
+
+### Task
+Rewrite `buildSections()`/`makeDividerInfo()` di `ScheduleView.swift` — bukan ditambal — karena pendekatan pengelompokan per-hari berdasarkan `block.startTime` punya 2 bug struktural:
+1. Block yang melintasi tengah malam (mis. Sleep 22:00–06:00) tidak pernah displit, jadi divider tengah malam untuk rentang itu tidak pernah muncul.
+2. `makeDividerInfo()` mengecek "block pertama section mulai PERSIS di `flight.arrival`" — nyaris tidak pernah cocok karena block jarang mulai tepat di waktu arrival, jadi badge kota nyaris tidak pernah muncul secara reliable.
+
+### Root Cause
+Desain lama menurunkan segmen timeline dari data block (`block.startTime`), padahal seharusnya sebaliknya: segmen ditentukan dari boundary trip itu sendiri (midnight & flight arrival timezone-baru), lalu block yang overlap boundary di-split mengikuti segmen — bukan block yang menentukan ada/tidaknya segmen.
+
+### Files Changed
+- `Services/ScheduleTimelineBuilder.swift` **(baru)** — `computeBoundaries`, `activeTimeZone`, `buildSections`, `dividerInfo`, plus model `TimelineBoundary`/`BoundaryKind`/`DaySection`/`PositionedBlock`/`TimezoneDividerInfo`. Dipindah dari `ScheduleView.swift` (tadinya `private`) supaya bisa di-unit-test tanpa trik `@testable` terhadap `private`.
+- `Views/Schedule/ScheduleView.swift` — hapus definisi duplikat, sekarang cuma konsumsi tipe/fungsi dari file Services baru.
+- `Tests/ScheduleTimelineBuilderTests.swift` **(baru)** — 4 test case (lihat Verification).
+- `06_CURRENT_STATE.md` — update Timezone section + tambah temuan bug baru di Schedule/Algorithm (lihat di bawah).
+
+### Behavior Changed
+- Boundary (midnight lokal / flight arrival ke timezone baru) dihitung sekali di muka dari `flights` + rentang trip — independen dari block manapun.
+- Block yang overlap lebih dari satu segmen (mis. Sleep melintasi tengah malam) sekarang displit jadi beberapa `PositionedBlock`, masing-masing dengan `id` unik tapi tetap `sourceBlockID` ke block asli (tap-to-detail tetap buka block utuh, bukan potongan).
+- Tiap segmen SELALU punya header tanggal+jam (`SectionHeader`, tidak berubah). Badge `{Kota} Time` cuma muncul kalau segmen itu dibuka oleh boundary jenis arrival-timezone-baru — tidak untuk midnight biasa, tidak untuk segmen pertama trip (bukan boundary yang "dilintasi" user, itu cuma titik mulai).
+- Same-timezone connecting flight (mis. domestic leg) TIDAK memicu badge kota — cuma perpindahan timezone asli yang memicu.
+
+### Verification
+- Build: NOT VERIFIED (tidak ada toolchain Xcode/Swift di environment ini).
+- Tests written (belum dijalankan, perlu register ke test target di Xcode):
+  - `testSleepBlockCrossingMidnightIsSplitAcrossTwoSegments` — Sleep 22:00–06:00 UTC tanpa flight sama sekali → harus jadi 2 segmen, 2 potongan (durasi total 8 jam), `sourceBlockID` sama, `id` beda, segmen kedua divider tanpa badge kota, segmen pertama tanpa divider.
+  - `testFlightArrivalIntoNewTimezoneProducesCityBadgeEvenWithoutABlockStartingThere` — block sengaja mulai 3 jam SETELAH arrival (bukan persis di titik arrival) → tetap harus ketemu segmen dengan badge "CDG".
+  - `testConnectingFlightWithinSameTimezoneProducesNoCityBadge` — leg CGK→DPS (sama-sama Asia/Jakarta) → tidak boleh ada badge kota sama sekali.
+  - `testEverySegmentHasADateAndTimeLabelRegardlessOfDividerType` — setiap segmen (apapun jenis boundary-nya) harus tetap punya `dateLabel`/`localTimeLabel` terisi.
+- Static/manual checks: Source review menyeluruh terhadap `buildSections`/`computeBoundaries`/`dividerInfo`; semua call-site di `ScheduleView.swift` sudah dicek konsisten (tidak ada sisa referensi ke fungsi/struct lama yang `private`).
+
+### Known Limitations
+- Belum divalidasi di simulator/device sungguhan atau lewat `xcodebuild test`.
+- File baru `ScheduleTimelineBuilder.swift`/`ScheduleTimelineBuilderTests.swift` perlu ditambahkan manual ke target yang benar di Xcode (app target untuk yang pertama, test target untuk yang kedua) — belum ada `.xcodeproj` di archive yang di-audit sesi ini.
+- Investigasi terpisah menemukan **bug lain, di luar scope task ini**, yang kemungkinan jadi penyebab konkret "hari cuma keliatan Sleep": `CircadianEngine.generateBlocks` tidak menerapkan `adaptationRate` pada hari-hari recovery pasca-arrival (`completedShiftDays` beku di nilai preparation, tidak progresif sesuai `04_ALGORITHM.md` Section 6/7). Ditelusuri manual (bukan dijalankan) — lihat detail & mekanisme lengkap di `06_CURRENT_STATE.md` bagian Schedule/Algorithm. **Ini bug di `CircadianEngine.swift`, bukan di `ScheduleView.swift`** — split/boundary fix di atas tidak akan menyelesaikannya.
+
+### Next Recommended Step
+1. Tambahkan `ScheduleTimelineBuilder.swift` & `ScheduleTimelineBuilderTests.swift` ke target Xcode yang benar, jalankan build + test.
+2. Buat task terpisah untuk fix `completedShiftDays`/`dailyShift` di `CircadianEngine.swift` supaya progresif pakai `adaptationRate` pada hari recovery — ini prioritas lebih tinggi dari polish UI karena langsung mempengaruhi kebenaran jadwal yang ditampilkan ke user.
+
+---
+
 # Entry Template
 
 Copy template ini untuk patch berikutnya:
@@ -319,3 +414,4 @@ Copy template ini untuk patch berikutnya:
 ### Next Recommended Step
 <langkah kecil berikutnya>
 ```
+
