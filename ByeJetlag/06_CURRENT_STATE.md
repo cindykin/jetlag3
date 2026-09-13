@@ -89,9 +89,12 @@ ByeJetlag/
 - [ ] **BELUM DIVERIFIKASI VISUAL (trim timeline):** Sama seperti item di atas, verifikasi visual sungguhan (simulator/device) belum dilakukan — terutama untuk kasus: (a) block yang sedang "in progress" pas trim terjadi (harus kepotong rapi, bukan nongol sebagian di luar batas atas grid), (b) transisi mendekati tengah malam (section "hari ini" berubah jadi section baru begitu lewat boundary berikutnya — perlu re-render, tidak ada timer otomatis yang trigger refresh, cuma ke-refresh kalau View di-recompute misal habis reschedule atau reopen screen).
 
 ### Persistence
-- [ ] `trips` dan `profile` masih memory-only pada `AppState`.
-- [ ] Force quit akan kehilangan state tersebut.
-- [ ] `PersistenceService` belum ada.
+- [x] `Services/PersistenceService.swift` dibuat — save/load `[Trip]` & `UserProfile` via `Codable` + `UserDefaults` (JSON encode/decode). Instance-based (bukan static seperti `CircadianEngine`) supaya `defaults: UserDefaults` bisa di-inject untuk testing, isolasi dari `.standard` yang dipakai app beneran. *(2026-09-13)*
+- [x] Semua struct terkait (`Trip`, `FlightLeg`, `TimelineBlock`, `UserProfile`, `BlockType`) **ternyata sudah `Codable` semua** dari awal — tidak perlu tambahan conformance apapun untuk task ini. *(2026-09-13)*
+- [x] `AppState.trips`/`.profile`/`.hasCompletedProfile` sekarang punya `didSet` yang panggil `PersistenceService.save...()` — otomatis ke-cover semua titik mutasi (`addTrip`, `rescheduleTrip`, binding langsung dari `ProfileView` seperti `$appState.profile.useCaffeine`) tanpa perlu manggil save() eksplisit satu-satu. `AppState.init()` load dari `PersistenceService` alih-alih mulai kosong. *(2026-09-13)*
+- [x] Unit test round-trip Codable untuk `Trip` (blocks + flight leg penuh) + 3 test tambahan untuk `PersistenceService` sendiri lewat `UserDefaults` suite terisolasi (bukan `.standard`) — lihat `Tests/PersistenceServiceTests.swift`. *(2026-09-13)*
+- [ ] **GAP tercatat, di luar scope task ini:** `02_ARCHITECTURE.md` Section 3 (target struktur folder) bilang `AppState` harusnya pindah ke `Store/AppState.swift` — belum dilakukan, `AppState` masih di dalam `Models.swift`. Task ini cuma soal persistence, bukan migrasi struktur folder, jadi sengaja tidak disentuh — tapi dicatat di sini supaya tidak lupa.
+- [ ] **BELUM DIVERIFIKASI:** Belum di-build/run di Xcode (tidak ada toolchain di environment sesi ini). Yang belum tercek manual: apakah `UserDefaults` benar-benar persist across app relaunch di simulator/device sungguhan (test yang ditulis pakai suite terisolasi, bukan `.standard` app beneran, jadi tidak membuktikan integrasi end-to-end).
 
 ### Notifications
 - [ ] `NotificationService` belum ada.
@@ -194,7 +197,7 @@ Urutan ini dibuat untuk mengurangi rework:
 - [ ] Rapikan navigation state dan route AddFlight → Trip/Schedule.
 
 ### Phase 6 — Persistence + Notifications
-- [ ] Implement local persistence.
+- [x] Implement local persistence. *(2026-09-13 — lihat section "Persistence" di atas untuk detail)*
 - [ ] Implement notification permission + deterministic schedule/cancel/reschedule.
 - [ ] Pastikan multi-trip notification identifiers tidak collide.
 

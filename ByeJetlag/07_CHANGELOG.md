@@ -513,6 +513,48 @@ Build & jalankan di simulator dengan device time diset ke tengah-tengah sebuah t
 
 ---
 
+## 2026-09-13 — Implementasi Persistence Lokal (Trips + Profile)
+
+### Task
+Implementasi persistence lokal untuk `trips` dan `profile` sesuai `02_ARCHITECTURE.md` Section 2.C, via `Codable` + `UserDefaults`. Tidak termasuk notifikasi (task terpisah berikutnya).
+
+### Catatan Sebelum Mulai
+Task menyebut `Store/AppState.swift`, tapi file itu belum ada — `AppState` masih di dalam `Models.swift` (folder `Store/` belum pernah dibuat, sesuai target struktur `02_ARCHITECTURE.md` Section 3 yang belum dieksekusi). Dikerjakan di lokasi aktualnya (`Models.swift`), migrasi ke `Store/` dicatat sebagai gap terpisah, tidak dikerjakan sekalian di task ini (di luar scope: task ini soal persistence, bukan restrukturisasi folder).
+
+### Files Changed
+- `Services/PersistenceService.swift` **(baru)** — `struct PersistenceService`, instance-based (beda dari `CircadianEngine` yang static-only) karena membungkus resource stateful (`UserDefaults`), supaya `defaults: UserDefaults` bisa di-inject saat testing (suite terisolasi, bukan `.standard`). Method: `saveTrips`/`loadTrips`, `saveProfile`/`loadProfile`, `saveHasCompletedProfile`/`loadHasCompletedProfile`. Kegagalan encode/decode di-log (`print`), tidak crash — tidak ada UI error-surface untuk persistence failure di v1.
+- `Models/Models.swift` — `AppState.trips`/`.profile`/`.hasCompletedProfile` dapat `didSet` yang panggil `PersistenceService.save...()`. `AppState.init()` load dari `PersistenceService` (fallback ke `UserProfile()` kalau belum ada profile tersimpan), bukan mulai kosong.
+- `Tests/PersistenceServiceTests.swift` **(baru)** — lihat Verification.
+
+### Kenapa `didSet`, Bukan Eksplisit di Tiap Titik Mutasi
+`trips`/`profile` dimutasi dari beberapa tempat berbeda: `addTrip()`, `rescheduleTrip()`, DAN binding langsung dari View (`$appState.profile.useCaffeine` di `ProfileView`, tidak lewat method apapun). Karena keduanya value type, SETIAP mutasi — dari manapun asalnya — lewat setter property itu sendiri. `didSet` menangkap semuanya otomatis, termasuk titik mutasi baru yang mungkin ditambahkan nanti tanpa perlu inget manggil `save()` manual. Ini lebih robust dibanding opsi "eksplisit di titik-titik mutasi" yang disebut di task (rawan lupa di titik baru).
+
+### Codable Conformance (poin 2 di task)
+Dicek satu-satu: `BlockType`, `TimelineBlock`, `FlightLeg`, `UserProfile`, `Trip` — **semuanya sudah `Codable` dari awal**, tidak ada yang perlu ditambahin conformance-nya. `FlightLeg` menyimpan timezone sebagai `String` (`originTimeZoneID`/`destinationTimeZoneID`), bukan `TimeZone` langsung, jadi tidak ada isu Codable-untuk-`TimeZone` yang perlu dipikirkan.
+
+### Bonus (di luar yang diminta eksplisit)
+- `hasCompletedProfile` ikut dipersist juga (task cuma sebut trips & profile). Alasan: tanpa ini, profile data akan persist benar tapi app tetap mengira onboarding/personalize belum pernah selesai, memicu ulang flow itu secara keliru untuk user yang buka lagi app-nya.
+
+### Verification
+- Build: NOT VERIFIED (tidak ada toolchain Xcode/Swift di environment ini).
+- Tests written (belum dijalankan, perlu ditambahkan ke test target di Xcode):
+  - `testTripRoundTripsThroughCodableIdentically` — **ini yang diminta eksplisit di task**: encode → decode `Trip` dengan blocks penuh + flight leg, verifikasi semua field (termasuk isi tiap `TimelineBlock`) identik.
+  - `testSaveThenLoadTripsRoundTripsThroughUserDefaults`, `testSaveThenLoadProfileRoundTripsThroughUserDefaults`, `testHasCompletedProfileDefaultsToFalseThenPersists` — bonus, menguji `PersistenceService` sendiri lewat `UserDefaults` suite terisolasi (nama suite random per test run), supaya tidak pernah menyentuh data app beneran (`.standard`).
+- Static/manual checks: source review — dicek tidak ada tempat lain yang construct `PersistenceService()` selain di `AppState.init` (jadi cuma 1 instance per app run, wajar untuk wrapper `UserDefaults.standard`); `didSet` pada 3 property dicek tidak infinite-loop (assignment di dalam `didSet` sendiri tidak ada, cuma manggil `persistence.save...()` yang tidak menyentuh `self.trips`/`.profile`/`.hasCompletedProfile` lagi).
+
+### Known Limitations
+- Belum di-build/run — perlu ditambahkan `PersistenceService.swift` & `PersistenceServiceTests.swift` ke target Xcode yang benar (app target untuk yang pertama, test target untuk yang kedua), lalu build + test.
+- Test yang ditulis untuk `PersistenceService` pakai `UserDefaults` suite terisolasi, BUKAN `.standard` — jadi belum membuktikan integrasi end-to-end sungguhan (relaunch app beneran di simulator/device, matikan app, buka lagi, cek datanya masih ada). Itu WAJIB dicoba manual sebelum fitur ini dianggap benar-benar selesai.
+- `AppState` masih di `Models.swift`, belum pindah ke `Store/AppState.swift` sesuai target struktur `02_ARCHITECTURE.md` — dicatat, tidak dikerjakan (di luar scope task ini).
+- Reassignment di `AppState.init()` (`trips = persistence.loadTrips()` dst.) memicu `didSet` sekali di awal, jadi ada 1x write balik yang sebenarnya redundant (nulis ulang data yang baru saja dibaca) setiap kali app dibuka. Harmless (bukan bug), tapi dicatat sebagai micro-inefficiency yang sengaja tidak dioptimasi demi kesederhanaan kode.
+
+### Next Recommended Step
+1. Tambahkan `PersistenceService.swift` & `PersistenceServiceTests.swift` ke target Xcode yang benar, build + test.
+2. Verifikasi manual end-to-end: buat trip, force-quit app dari App Switcher (bukan cuma background), buka lagi, pastikan trip masih ada.
+3. Lanjut ke task notifikasi (`NotificationService` + `UNUserNotificationCenter`) — sudah eksplisit di-defer dari task ini.
+
+---
+
 # Entry Template
 
 Copy template ini untuk patch berikutnya:

@@ -183,11 +183,39 @@ struct Trip: Identifiable, Codable, Hashable {
 
 // MARK: - App State
 class AppState: ObservableObject {
-    @Published var trips: [Trip] = []
-    @Published var profile: UserProfile = UserProfile()
-    @Published var hasCompletedProfile: Bool = false
+    // NOTE: `02_ARCHITECTURE.md` Section 3 (target folder structure) says AppState should
+    // eventually live in `Store/AppState.swift`, moved out of this file. That move hasn't
+    // happened yet — out of scope for this persistence task — so it's still here for now.
+    // Tracked as a known gap in 06_CURRENT_STATE.md.
 
-    init() { loadSample() }
+    private let persistence = PersistenceService()
+
+    // `didSet` (not explicit save() calls sprinkled at each mutation site) is deliberate:
+    // `trips`/`profile` are mutated from several places (addTrip, rescheduleTrip, and
+    // direct SwiftUI bindings like `$appState.profile.useCaffeine` from ProfileView) — since
+    // both are value types, EVERY mutation, however it happens, goes through this property's
+    // setter. didSet catches all of them automatically, including any future mutation site
+    // someone adds later without needing to remember to call save().
+    @Published var trips: [Trip] = [] {
+        didSet { persistence.saveTrips(trips) }
+    }
+    @Published var profile: UserProfile = UserProfile() {
+        didSet { persistence.saveProfile(profile) }
+    }
+    @Published var hasCompletedProfile: Bool = false {
+        didSet { persistence.saveHasCompletedProfile(hasCompletedProfile) }
+    }
+
+    init() {
+        // Reassigning here (rather than leaving the declarations' defaults in place) DOES
+        // trigger the didSet above once each, immediately re-saving what was just loaded.
+        // That's a harmless no-op write, not a bug — kept simple on purpose rather than
+        // reaching for the `Published(initialValue:)` workaround to dodge it.
+        trips = persistence.loadTrips()
+        profile = persistence.loadProfile() ?? UserProfile()
+        hasCompletedProfile = persistence.loadHasCompletedProfile()
+        loadSample()
+    }
 
     func addTrip(_ trip: Trip) {
         trips.insert(trip, at: 0)
