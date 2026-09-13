@@ -52,17 +52,47 @@ struct ScheduleView: View {
         buildSections(from: trip.blocks, flights: trip.flights)
     }
 
+    // MARK: - Timeline Trim (04_ALGORITHM.md doesn't specify this — it's a display-only
+    // convenience: hide hours that have already passed, so the person opening the app
+    // mid-day isn't scrolling past a chunk of timeline that's no longer relevant).
+
+    /// Sections whose entire time range is already in the past (`segmentEndDate <= now`)
+    /// are dropped entirely — not trimmed, not shown at all. The section currently in
+    /// progress and every future section remain.
+    private var visibleSections: [DaySection] {
+        let now = Date()
+        return sections.filter { $0.segmentEndDate > now }
+    }
+
+    /// For the ONE section "now" currently falls inside, returns the hour (relative to that
+    /// section's own coordinate system, same as `section.startHour`) to start rendering
+    /// from — "now" floored to the hour, in that section's own timezone (never the
+    /// device's). Every other section (fully future) returns its normal `startHour`
+    /// unchanged, i.e. renders in full from its usual start.
+    private func displayStartHour(for section: DaySection) -> Double {
+        let now = Date()
+        guard now > section.segmentStartDate, now < section.segmentEndDate else {
+            return section.startHour
+        }
+        var calendar = Calendar.current
+        calendar.timeZone = section.timeZone
+        let flooredComponents = calendar.dateComponents([.year, .month, .day, .hour], from: now)
+        let flooredNow = calendar.date(from: flooredComponents) ?? now
+        let flooredNowHourOffset = flooredNow.timeIntervalSince(section.segmentStartDate) / 3600.0
+        return max(section.startHour, flooredNowHourOffset)
+    }
+
     var body: some View {
         ZStack(alignment: .bottom) {
             Color(.systemBackground).ignoresSafeArea()
 
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 0) {
-                    if sections.isEmpty {
+                    if visibleSections.isEmpty {
                         emptyState
                     } else {
-                        ForEach(sections) { section in
-                            SectionView(section: section) { block in
+                        ForEach(visibleSections) { section in
+                            SectionView(section: section, displayStartHour: displayStartHour(for: section)) { block in
                                 selectedBlock = block
                                 showDetail = true
                             }
@@ -72,7 +102,7 @@ struct ScheduleView: View {
                 }
             }
 
-            if !sections.isEmpty {
+            if !visibleSections.isEmpty {
                 TapHintPill().padding(.bottom, 20)
             }
         }
@@ -137,12 +167,13 @@ struct ScheduleView: View {
 // MARK: - Section View
 private struct SectionView: View {
     let section: DaySection
+    let displayStartHour: Double
     let onTap: (TimelineBlock) -> Void
 
     var body: some View {
         VStack(spacing: 0) {
             SectionHeader(section: section)
-            TimelineGrid(section: section, onTap: onTap)
+            TimelineGrid(section: section, displayStartHour: displayStartHour, onTap: onTap)
         }
     }
 }
@@ -200,17 +231,41 @@ private struct SectionHeader: View {
 // MARK: - Timeline Grid
 private struct TimelineGrid: View {
     let section: DaySection
+    /// Hour (in `section`'s own relative coordinate system, same as `section.startHour`) to
+    /// start rendering from. Equal to `section.startHour` for every section except the one
+    /// "now" currently falls inside — see `ScheduleView.displayStartHour(for:)`.
+    let displayStartHour: Double
     let onTap: (TimelineBlock) -> Void
 
     private var hourTicks: [Int] {
-        let s = Int(floor(section.startHour))
+        let s = Int(floor(displayStartHour))
         let e = Int(ceil(section.endHour))
         return Array(s...e)
     }
     private var totalHeight: CGFloat {
-        CGFloat(section.endHour - section.startHour) * TL.hourHeight
+        CGFloat(section.endHour - displayStartHour) * TL.hourHeight
     }
-    private var columns: [[PositionedBlock]] { layoutColumns(section.blocks) }
+
+    /// `section.blocks` clipped to `displayStartHour`: a block that already fully ended
+    /// before "now" is dropped entirely; a block in progress right now (started earlier,
+    /// still ongoing) is trimmed so it starts at `displayStartHour` instead of its real
+    /// start — otherwise it would render partly above the trimmed top edge. Blocks in
+    /// sections that aren't being trimmed are unaffected (displayStartHour == section.startHour).
+    private var visibleBlocks: [PositionedBlock] {
+        section.blocks.compactMap { item in
+            guard item.endHour > displayStartHour else { return nil }
+            let clippedStart = max(item.startHour, displayStartHour)
+            guard clippedStart < item.endHour else { return nil }
+            return PositionedBlock(
+                id: item.id,
+                sourceBlockID: item.sourceBlockID,
+                block: item.block,
+                startHour: clippedStart,
+                durationHours: item.endHour - clippedStart
+            )
+        }
+    }
+    private var columns: [[PositionedBlock]] { layoutColumns(visibleBlocks) }
 
     /// Real wall-clock label for each hour tick. `hour` here is relative to
     /// `section.startHour` (often non-integer/non-midnight — e.g. a segment opening right
@@ -219,6 +274,8 @@ private struct TimelineGrid: View {
     /// "00:00" on its first tick. This derives the actual Date for each tick from
     /// `segmentStartDate` + `timeZone` and formats THAT, so the label is always correct
     /// local wall-clock time (truncated to the hour, matching the original ":00" display).
+    /// Always anchored to `section.startHour` (NOT `displayStartHour`) — trimming changes
+    /// which hours are shown, never what real date/time a given hour number maps to.
     private var hourLabels: [Int: String] {
         let formatter = DateFormatter()
         formatter.dateFormat = "HH:00"
@@ -238,7 +295,7 @@ private struct TimelineGrid: View {
                 Color.clear
                     .frame(width: TL.timeColumnWidth, height: totalHeight)
                 ForEach(hourTicks, id: \.self) { hour in
-                    let offset = CGFloat(Double(hour) - section.startHour) * TL.hourHeight
+                    let offset = CGFloat(Double(hour) - displayStartHour) * TL.hourHeight
                     Text(hourLabels[hour] ?? "")
                         .font(.system(size: 10, weight: .regular, design: .monospaced))
                         .foregroundStyle(Color(.tertiaryLabel))
@@ -255,7 +312,7 @@ private struct TimelineGrid: View {
                 ZStack {
                     Color.clear.frame(maxWidth: .infinity).frame(height: totalHeight)
                     ForEach(hourTicks, id: \.self) { hour in
-                        let offset = CGFloat(Double(hour) - section.startHour) * TL.hourHeight
+                        let offset = CGFloat(Double(hour) - displayStartHour) * TL.hourHeight
                         Rectangle()
                             .fill(Color(.separator).opacity(0.3))
                             .frame(maxWidth: .infinity).frame(height: 0.5)
@@ -270,7 +327,7 @@ private struct TimelineGrid: View {
                         ZStack(alignment: .topLeading) {
                             Color.clear.frame(maxWidth: .infinity).frame(height: totalHeight)
                             ForEach(col) { item in
-                                let top = CGFloat(item.startHour - section.startHour) * TL.hourHeight
+                                let top = CGFloat(item.startHour - displayStartHour) * TL.hourHeight
                                 let h   = max(CGFloat(item.durationHours) * TL.hourHeight, TL.blockMinHeight)
                                 BlockView(block: item.block)
                                     .frame(maxWidth: .infinity).frame(height: h)

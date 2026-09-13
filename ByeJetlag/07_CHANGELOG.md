@@ -454,6 +454,65 @@ Build di Xcode, jalankan di simulator, buka trip Jakarta-Doha (atau trip apapun 
 
 ---
 
+## 2026-09-13 — Bagian 1: Tutup Investigasi Seek Light (Dokumentasi Saja)
+
+### Task
+Konfirmasi terhadap `04_ALGORITHM.md` Section 3.B/3.C (sudah direvisi): apakah wajar Seek Light ter-subtract seluruhnya oleh Sleep untuk arah westward, karena CBTmin masih di tengah window tidur. Instruksi eksplisit: JANGAN ubah kode `CircadianEngine.swift`/`enforcingSleepExclusivity`.
+
+### Temuan
+**Investigated, confirmed correct behavior per spec — no code change.** Section 3.C poin 1 (`04_ALGORITHM.md`) eksplisit: "Sleep eksklusif mutlak... TIDAK ADA block lain (tipe apapun) yang boleh render bersamaan pada rentang waktu itu". Poin 2: kalau Avoid Light beririsan dengan Sleep, "Sleep yang menang dan Avoid Light dipotong/disesuaikan". Kalau hasil kalkulasi CBTmin (`Wake Time - 2.5 jam`) menaruh window Seek Light/Avoid Light SELURUHNYA di dalam window Sleep, hasil "block itu hilang total dari render" adalah konsekuensi langsung dan disengaja dari aturan overlap ini — bukan efek samping algoritma yang keliru.
+
+**Penting — ini TIDAK menutup bug freeze `completedShiftDays` yang dicatat 2026-09-11.** Itu bug terpisah yang masih terbuka: karena shift beku (tidak progresif per `adaptationRate`), kondisi "CBTmin jatuh di tengah Sleep" ini jadi terjadi BERULANG identik setiap hari recovery — harusnya cuma sesekali terjadi tergantung progres shift harian yang sebenarnya. Investigasi ini cuma menjawab pertanyaan sempit "apakah mekanisme subtraction-nya sendiri benar", bukan "apakah kondisi yang memicu subtraction ini terjadi dengan frekuensi yang benar".
+
+### Files Changed
+- `06_CURRENT_STATE.md` — tambah entry "investigated, confirmed correct behavior per spec — no code change", dengan catatan eksplisit bedanya dari bug freeze yang masih terbuka.
+- **Tidak ada perubahan kode** — sesuai instruksi task ini murni dokumentasi.
+
+### Verification
+- N/A (dokumentasi, tidak ada kode yang berubah untuk diverifikasi).
+
+---
+
+## 2026-09-13 — Bagian 2: Fitur Trim Timeline ke "Sekarang"
+
+### Task
+Section hari ini: jangan render jam yang sudah lewat, mulai dari jam sekarang (dibulatkan ke jam sebelumnya) bukan dari 00:00. Section yang sudah lewat seluruhnya (kemarin dst): skip total, jangan ditampilkan. Section masa depan: render penuh seperti biasa.
+
+### Implementation
+- `Services/ScheduleTimelineBuilder.swift` — `DaySection` dapat field baru `segmentEndDate: Date` (instant boundary berikutnya, atau `tripEnd` untuk segmen terakhir — datanya sudah ada di `buildSections` sebagai `segmentEnd`, tinggal disimpan). Dibutuhkan supaya trim logic tahu persis kapan sebuah segmen benar-benar berakhir, tanpa perlu menebak dari `endHour` (yang cuma perkiraan dari isi block, bisa meleset dari boundary asli).
+- `Views/Schedule/ScheduleView.swift`:
+  - `visibleSections` (baru): filter `sections` yang `segmentEndDate > Date()` — segmen yang seluruh rentangnya sudah lewat di-drop total dari array, bukan cuma disembunyikan sebagian.
+  - `displayStartHour(for:)` (baru): untuk SATU segmen yang mengandung `Date()` saat ini, hitung jam sekarang dibulatkan ke bawah ke jam bulat (`Calendar` dengan `timeZone` segmen itu sendiri, BUKAN device) lalu konversi ke koordinat jam-relatif yang sama dengan `section.startHour`. Segmen lain (semua di masa depan) tetap pakai `section.startHour` asli, tidak berubah.
+  - `TimelineGrid` — origin koordinat visual (`hourTicks`, `totalHeight`, semua `offset`) diganti dari `section.startHour` ke `displayStartHour` yang diteruskan dari parent. `hourLabels` (real-date formatting) TETAP dijangkarkan ke `section.startHour` — trimming cuma mengubah RENTANG jam yang ditampilkan, bukan pemetaan jam-ke-tanggal-asli.
+  - `TimelineGrid.visibleBlocks` (baru): block yang sudah selesai penuh sebelum `displayStartHour` di-drop; block yang sedang berjalan (mulai sebelum, masih berlangsung) di-clip supaya mulai render tepat di `displayStartHour` — supaya tidak ada konten yang nongol di atas batas atas grid yang sudah di-trim.
+  - `SectionHeader` TIDAK ikut ter-trim — tetap menampilkan identitas asli section (tanggal/jam sebenarnya), cuma area grid di bawahnya yang mulai dari "sekarang".
+
+### Files Changed
+- `Services/ScheduleTimelineBuilder.swift` — tambah `segmentEndDate`.
+- `Views/Schedule/ScheduleView.swift` — `visibleSections`, `displayStartHour(for:)`, `TimelineGrid` rewrite (koordinat origin + `visibleBlocks`), `SectionView` meneruskan `displayStartHour`.
+- `06_CURRENT_STATE.md` — catat fitur baru + item belum-terverifikasi.
+
+### Behavior Changed
+- Section yang 100% sudah lewat tidak lagi muncul di scroll view sama sekali.
+- Section "hari ini" (yang sedang berjalan) grid-nya mulai dari jam sekarang dibulatkan ke bawah, bukan dari awal window section aslinya.
+- Section masa depan tidak terpengaruh sama sekali (`displayStartHour == section.startHour`).
+- Fitur ini murni display/UX — TIDAK ada di `04_ALGORITHM.md` sebagai requirement algoritma, tidak menyentuh `CircadianEngine.swift`, `trip.blocks`, atau data model manapun. Sepenuhnya computed di layer View dari `Date()` saat render.
+
+### Verification
+- Build: NOT VERIFIED (tidak ada toolchain Xcode/Swift di environment ini).
+- **Screenshot/simulator: TIDAK DILAKUKAN** — sama seperti keterbatasan yang sudah dicatat di entry sebelumnya, environment sesi ini tidak punya Xcode/macOS/simulator.
+- Static/manual checks: source review — fixture `#Preview("Jakarta → Paris")` di file yang sama ternyata sudah dibuat relatif terhadap `Date()` (bukan tanggal fiktif statis), jadi trim ini otomatis "teraktivasi" secara natural di preview Xcode — day -1 (kemarin) diperkirakan akan hilang dari tampilan tergantung jam preview di-render. Ini BUKAN regresi, ini fitur yang bekerja sesuai desain — dicatat di sini supaya nggak dikira preview-nya rusak kalau keliatan lebih pendek dari sebelumnya.
+- Dicek tidak ada tempat lain yang construct `SectionView`/`TimelineGrid` langsung selain di `ScheduleView.body`/`SectionView.body` yang sudah diupdate; semua `#Preview` lewat `ScheduleView(trip:)` jadi tidak kena breaking change signature.
+
+### Known Limitations
+- Belum divalidasi visual — terutama: (a) block yang sedang "in progress" pas trim, harus kepotong rapi bukan nongol sebagian di luar batas atas; (b) tidak ada timer/auto-refresh — begitu waktu berjalan lewat boundary berikutnya (mis. lewat tengah malam), tampilan tidak otomatis re-render sampai View di-recompute (reopen screen, reschedule, dsb.) — ini pattern SwiftUI yang wajar untuk v1 (tidak ada requirement live-ticking di manapun di `04_ALGORITHM.md`), tapi dicatat sebagai batasan yang disengaja, bukan terlewat.
+- Trip yang 100% sudah lewat (semua section ter-filter) akan jatuh ke `emptyState` yang teksnya "Your adaptation plan will appear here once generated" — copy itu sebenarnya untuk trip yang BELUM digenerate, bukan trip yang SUDAH selesai. Tidak dibuat state baru "trip completed" di task ini karena di luar scope yang diminta — dicatat sebagai gap kecil untuk task terpisah kalau diperlukan.
+
+### Next Recommended Step
+Build & jalankan di simulator dengan device time diset ke tengah-tengah sebuah trip aktif (mis. jam 14:00 di hari kedua), verifikasi: section kemarin hilang, section hari ini mulai dari jam 14:00 bukan 00:00, section besok render penuh dari 00:00.
+
+---
+
 # Entry Template
 
 Copy template ini untuk patch berikutnya:

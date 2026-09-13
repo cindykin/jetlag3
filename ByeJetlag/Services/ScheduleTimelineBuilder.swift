@@ -45,6 +45,11 @@ struct DaySection: Identifiable {
     /// to this instant, NOT hour-of-day — `TimelineGrid` needs this (+ `timeZone`) to turn
     /// a relative offset back into the correct real clock time for its hour-tick labels.
     let segmentStartDate: Date
+    /// The real Date this segment ends at (== the NEXT boundary instant, or `tripEnd` for
+    /// the last segment). Used by the "trim past hours" feature to decide whether a section
+    /// is entirely in the past (skip it) or currently in progress (trim its rendered start
+    /// to "now" instead of the section's normal start).
+    let segmentEndDate: Date
     /// The timezone `segmentStartDate`/`localTimeLabel`/`dateLabel` are expressed in —
     /// same as the originating `TimelineBoundary.timeZone`.
     let timeZone: TimeZone
@@ -208,6 +213,7 @@ func buildSections(from blocks: [TimelineBlock], flights: [FlightLeg]) -> [DaySe
             localTimeLabel: timeFormatter.string(from: segmentStart),
             timeZoneLabel: shortTimeZoneLabel(for: boundary.timeZone),
             segmentStartDate: segmentStart,
+            segmentEndDate: segmentEnd,
             timeZone: boundary.timeZone,
             startHour: sectionStartHour,
             endHour: max(sectionEndHour, sectionStartHour + 1), // at least 1 hour range
