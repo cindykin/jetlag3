@@ -416,6 +416,44 @@ Build & lihat langsung di simulator untuk trip yang tadinya membingungkan (dua m
 
 ---
 
+## 2026-09-12 — Fix: Hour-Grid Label Salah + Konsolidasi Section Header/Divider
+
+### Task
+Dua fix terpisah di area yang sama:
+1. `TimelineGrid.hourTicks` menampilkan label jam salah untuk section yang mulai di jam non-bulat.
+2. Konsolidasi `SectionHeader` + `TimezoneDividerView` jadi satu bar (belum kejadian dari task konsolidasi sebelumnya).
+
+### Bug 1 — Root Cause
+`section.startHour`/`endHour` dan `PositionedBlock.startHour` adalah **jam relatif** terhadap `segmentStart` (hasil `pieceStart.timeIntervalSince(segmentStart)/3600`), BUKAN jam-dalam-sehari. Tapi `TimelineGrid` memformat angka relatif itu langsung: `String(format: "%02d:00", hour % 24)` — seolah `hour` adalah jam asli. Untuk section yang mulai persis di jam bulat (mis. midnight), kebetulan `hour=0` cocok dengan tick pertama yang juga jam 00:00 asli, jadi bug ini nggak kelihatan. Tapi untuk section yang dibuka oleh flight arrival di jam non-bulat (mis. 03:01), tick pertama (`hour=0`, relatif) tetap diformat jadi "00:00" — padahal jam aslinya sekitar 03:00.
+
+### Fix 1
+- `Services/ScheduleTimelineBuilder.swift` — `DaySection` dapat 2 field baru: `segmentStartDate: Date` (instant asli segmen dimulai — sudah dihitung sebagai `segmentStart`/`boundary.instant`, tinggal disimpan) dan `timeZone: TimeZone` (= `boundary.timeZone`, sudah ada juga).
+- `Views/Schedule/ScheduleView.swift` — `TimelineGrid.hourLabels` (baru): untuk tiap hour tick, hitung `actualDate = segmentStartDate + (hourRelative - startHour) jam`, lalu format `actualDate` itu (bukan `hour` mentah) pakai `DateFormatter` dengan `timeZone` segmen. Posisi visual (`offset`, grid lines) TIDAK diubah — itu memang benar sebagai aritmatika relatif, cuma teks label yang salah.
+
+### Bug 2 — Konsolidasi Header (Fix Tertunda)
+Task sebelumnya (2026-09-11, timezone divider awal) sudah minta ini tapi belum kejadian: untuk section dengan `divider != nil`, `ScheduleView.body` merender `TimezoneDividerView` (bar sendiri: tanggal + badge kota + jam) LANGSUNG DIIKUTI `SectionHeader` (bar sendiri lagi: tanggal + jam) — dua bar bertumpuk yang isinya tumpang tindih (tanggal & jam muncul 2x).
+
+### Fix 2
+- `Views/Schedule/ScheduleView.swift` — `TimezoneDividerView` dihapus. `SectionHeader` sekarang satu-satunya bar, baca `section.divider` langsung: badge kota (`{cityName} Time` + ikon jam) cuma muncul kalau `divider?.cityName != nil`; border bawah cuma muncul kalau `divider != nil` (baik midnight maupun arrival — bukan section pertama trip, karena `dividerInfo(for:)` sudah mengembalikan `nil` untuk `.tripStart`). `ScheduleView.body` disederhanakan: tidak ada lagi render kondisional 2-view, cukup `ForEach(sections) { SectionView(section:) }`.
+
+### Files Changed
+- `Services/ScheduleTimelineBuilder.swift` — tambah `segmentStartDate`/`timeZone` ke `DaySection`.
+- `Views/Schedule/ScheduleView.swift` — `TimelineGrid.hourLabels`, hapus `TimezoneDividerView`, konsolidasi `SectionHeader`, sederhanakan `ScheduleView.body`.
+- `06_CURRENT_STATE.md` — catat kedua fix + 1 item belum-terverifikasi (lihat Verification).
+
+### Verification
+- Build: NOT VERIFIED (tidak ada toolchain Xcode/Swift di environment ini).
+- **Screenshot simulator trip Jakarta-Doha: TIDAK DILAKUKAN.** Task ini secara eksplisit minta verifikasi visual via simulator sebelum lapor selesai — environment sesi ini (Linux sandbox, tanpa Xcode/macOS/simulator) tidak bisa menjalankan itu sama sekali, konsisten dengan keterbatasan yang sudah dicatat di beberapa entry sebelumnya soal `xcodebuild`. **Ini bukan "sudah diverifikasi lalu lupa lampirkan" — verifikasi visualnya memang belum terjadi sama sekali.** Ditandai eksplisit `[ ]` (belum selesai) di `06_CURRENT_STATE.md`, bukan `[x]`.
+- Static/manual checks: source review — semua call-site `DaySection(...)` (cuma 1, di `buildSections`), `TimezoneDividerView` (dihapus, tidak ada sisa referensi), dan `ForEach` di `ScheduleView.body` sudah dicek konsisten. `ScheduleTimelineBuilderTests.swift` tidak perlu diubah (tidak construct `DaySection` langsung, cuma panggil `buildSections()`).
+
+### Known Limitations
+- Belum divalidasi visual — WAJIB dicek manual di simulator sebelum item ini dianggap benar-benar selesai: (a) hour-grid label sekarang menunjukkan jam yang benar untuk section yang mulai di jam non-bulat, (b) section dengan divider cuma render 1 bar (bukan 2 bertumpuk), spacing badge & alignment wajar.
+
+### Next Recommended Step
+Build di Xcode, jalankan di simulator, buka trip Jakarta-Doha (atau trip apapun yang punya flight arrival di jam non-bulat), screenshot, dan konfirmasi 2 hal di atas. Kalau ada yang masih salah secara visual, laporkan balik dengan screenshot supaya bisa ditelusuri titik pastinya.
+
+---
+
 # Entry Template
 
 Copy template ini untuk patch berikutnya:

@@ -40,6 +40,14 @@ struct DaySection: Identifiable {
     /// being hours apart in reality. See 07_CHANGELOG.md 2026-09-12 for the investigation
     /// that found this (expected behavior, not a bug — just needed disambiguation).
     let timeZoneLabel: String
+    /// The real Date this segment begins at (== the boundary instant that opened it).
+    /// `startHour`/`endHour` and every `PositionedBlock.startHour` are hour offsets RELATIVE
+    /// to this instant, NOT hour-of-day — `TimelineGrid` needs this (+ `timeZone`) to turn
+    /// a relative offset back into the correct real clock time for its hour-tick labels.
+    let segmentStartDate: Date
+    /// The timezone `segmentStartDate`/`localTimeLabel`/`dateLabel` are expressed in —
+    /// same as the originating `TimelineBoundary.timeZone`.
+    let timeZone: TimeZone
     let startHour: Double
     let endHour: Double
     let blocks: [PositionedBlock]
@@ -199,6 +207,8 @@ func buildSections(from blocks: [TimelineBlock], flights: [FlightLeg]) -> [DaySe
             dateLabel: dateFormatter.string(from: segmentStart),
             localTimeLabel: timeFormatter.string(from: segmentStart),
             timeZoneLabel: shortTimeZoneLabel(for: boundary.timeZone),
+            segmentStartDate: segmentStart,
+            timeZone: boundary.timeZone,
             startHour: sectionStartHour,
             endHour: max(sectionEndHour, sectionStartHour + 1), // at least 1 hour range
             blocks: positioned,

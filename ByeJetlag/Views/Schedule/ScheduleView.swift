@@ -61,11 +61,7 @@ struct ScheduleView: View {
                     if sections.isEmpty {
                         emptyState
                     } else {
-                        ForEach(Array(sections.enumerated()), id: \.element.id) { index, section in
-                            if index > 0, let divider = section.divider {
-                                TimezoneDividerView(info: divider)
-                            }
-
+                        ForEach(sections) { section in
                             SectionView(section: section) { block in
                                 selectedBlock = block
                                 showDetail = true
@@ -138,57 +134,6 @@ struct ScheduleView: View {
 }
 
 
-private struct TimezoneDividerView: View {
-    let info: TimezoneDividerInfo
-
-    private var dateText: String {
-        let f = DateFormatter()
-        f.dateFormat = "EEE, dd MMM"
-        f.timeZone = info.timeZone
-        return f.string(from: info.date)
-    }
-
-    private var timeText: String {
-        let f = DateFormatter()
-        f.dateFormat = "HH:mm"
-        f.timeZone = info.timeZone
-        return f.string(from: info.date)
-    }
-
-    var body: some View {
-        HStack(spacing: 10) {
-            Text(dateText)
-                .font(.footnote)
-                .fontWeight(.medium)
-
-            Spacer()
-
-            if let city = info.cityName {
-                HStack(spacing: 4) {
-                    Image(systemName: "clock")
-                    Text("\(city) Time")
-                }
-                .font(.caption)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 5)
-                .background(Color(.secondarySystemBackground))
-                .clipShape(Capsule())
-            }
-
-            Text(timeText)
-                .font(.footnote)
-                .foregroundStyle(Color(.secondaryLabel))
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
-        .overlay(alignment: .bottom) {
-            Rectangle()
-                .fill(Color(.separator).opacity(0.5))
-                .frame(height: 0.5)
-        }
-    }
-}
-
 // MARK: - Section View
 private struct SectionView: View {
     let section: DaySection
@@ -203,11 +148,19 @@ private struct SectionView: View {
 }
 
 // MARK: - Section Header
+//
+// Consolidated bar (2026-09-12): previously a boundary section rendered TWO stacked bars —
+// `TimezoneDividerView` (date + optional city badge + time) immediately followed by this
+// plain header (date + time again) — visually duplicated the date/time. Now this single
+// view reads `section.divider` directly: the city badge only appears for a genuine
+// timezone-arrival boundary, and the bottom border only appears when this section was
+// opened by ANY boundary (midnight or arrival) — never for the very first (trip-start)
+// section, matching `dividerInfo(for:)`'s existing rule that trip-start has no divider.
 private struct SectionHeader: View {
     let section: DaySection
 
     var body: some View {
-        HStack(alignment: .center, spacing: 0) {
+        HStack(alignment: .center, spacing: 10) {
             Text(section.dateLabel)
                 .font(.footnote)
                 .fontWeight(.medium)
@@ -215,13 +168,32 @@ private struct SectionHeader: View {
 
             Spacer()
 
+            if let cityName = section.divider?.cityName {
+                HStack(spacing: 4) {
+                    Image(systemName: "clock")
+                    Text("\(cityName) Time")
+                }
+                .font(.caption)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background(Color(.secondarySystemBackground))
+                .clipShape(Capsule())
+            }
+
             Text("\(section.localTimeLabel) · \(section.timeZoneLabel)")
                 .font(.footnote)
                 .foregroundStyle(Color(.secondaryLabel))
         }
         .padding(.horizontal, 16)
         .padding(.top, 20)
-        .padding(.bottom, 6)
+        .padding(.bottom, section.divider != nil ? 10 : 6)
+        .overlay(alignment: .bottom) {
+            if section.divider != nil {
+                Rectangle()
+                    .fill(Color(.separator).opacity(0.5))
+                    .frame(height: 0.5)
+            }
+        }
     }
 }
 
@@ -240,6 +212,25 @@ private struct TimelineGrid: View {
     }
     private var columns: [[PositionedBlock]] { layoutColumns(section.blocks) }
 
+    /// Real wall-clock label for each hour tick. `hour` here is relative to
+    /// `section.startHour` (often non-integer/non-midnight — e.g. a segment opening right
+    /// after a 03:01 arrival) — it is NOT itself an hour-of-day. The old code formatted
+    /// `hour % 24` directly as if it were, so a segment starting mid-hour always showed
+    /// "00:00" on its first tick. This derives the actual Date for each tick from
+    /// `segmentStartDate` + `timeZone` and formats THAT, so the label is always correct
+    /// local wall-clock time (truncated to the hour, matching the original ":00" display).
+    private var hourLabels: [Int: String] {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "HH:00"
+        formatter.timeZone = section.timeZone
+        var labels: [Int: String] = [:]
+        for hour in hourTicks {
+            let actualDate = section.segmentStartDate.addingTimeInterval((Double(hour) - section.startHour) * 3600)
+            labels[hour] = formatter.string(from: actualDate)
+        }
+        return labels
+    }
+
     var body: some View {
         HStack(alignment: .top, spacing: 0) {
             // Time column
@@ -248,7 +239,7 @@ private struct TimelineGrid: View {
                     .frame(width: TL.timeColumnWidth, height: totalHeight)
                 ForEach(hourTicks, id: \.self) { hour in
                     let offset = CGFloat(Double(hour) - section.startHour) * TL.hourHeight
-                    Text(String(format: "%02d:00", hour % 24))
+                    Text(hourLabels[hour] ?? "")
                         .font(.system(size: 10, weight: .regular, design: .monospaced))
                         .foregroundStyle(Color(.tertiaryLabel))
                         .offset(y: offset - 6)
